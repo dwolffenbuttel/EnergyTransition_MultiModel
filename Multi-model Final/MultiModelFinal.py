@@ -26,22 +26,24 @@ from ema_workbench.util.ema_logging import (get_module_logger, method_logger)
 
 _logger = get_module_logger(__name__)
 
-def mun_subscripted_variables(x):
-    sub_vars =pd.read_csv(filepath_vensim_vars + 'SD_output_' + x + '.csv',
-                          encoding = 'unicode_escape').loc[0].reset_index()['index'][1:]
+
+def mun_subscripted_variables(working_directory, x):
+    filepath_vensim_vars = os.path.join(working_directory, 'SD', 'vensim_vars',)
+    fn = f'SD_output_{x}.csv'
+    fp = os.path.join(filepath_vensim_vars, fn)
+    sub_vars = pd.read_csv(fp, encoding='unicode_escape').loc[0].reset_index()['index'][1:]
     return sub_vars
 
-def mun_subscripted_outcomes(y):
-    x = mun_subscripted_variables(y)
+
+def mun_subscripted_outcomes(working_directory, y):
+    x = mun_subscripted_variables(working_directory, y)
     outcomes = []
     for m in x:
         outcomes.append(TimeSeriesOutcome(m))
     return outcomes
-  
-def run_partial_SD_model(final_time, self):
 
-    model_file = self.vensim_file
-    
+
+def run_partial_SD_model(final_time, output_file):
     initialTime = vensim.get_val('INITIAL TIME')
     finalTime = vensim.get_val('FINAL TIME')
     timeStep = vensim.get_val('TIME STEP')
@@ -50,12 +52,11 @@ def run_partial_SD_model(final_time, self):
     if savePer > 0:
         timeStep = savePer
 
-    self.run_length = int((finalTime - initialTime) / timeStep + 2)
-    #self.run_length = int((finalTime - initialTime) / timeStep + 1)
+    run_length = int((finalTime - initialTime) / timeStep + 2)
     
     vensim.set_value('FINAL TIME', final_time)
-    vensim.run_simulation(model_file)
-
+    vensim.run_simulation(output_file)
+  
 def extract_SD_data(output_vars, model_output):    
     output = pd.DataFrame()
     output['Time'] = vensim.get_data(model_output, 'Time')
@@ -72,50 +73,69 @@ def extract_SD_data(output_vars, model_output):
             output[i] = vensim.get_data(model_output, i)
     return output.set_index('Time')
 
-def get_system_cost_reduction(model_output):
-    data = extract_SD_data(mun_subscripted_variables('systemcost-reduction').to_list(),model_output)
+
+def get_system_cost_reduction(working_directory, model_output):
+    data = extract_SD_data(mun_subscripted_variables(working_directory, 'systemcost-reduction').to_list(),
+                           model_output)
     data.columns = data.columns.str.replace('System cost reduction', '').str.replace('[','').str.replace(']','').str.replace('"', '')
     return data
 
-def get_insulation_cost_reduction(model_output):
-    data = extract_SD_data(mun_subscripted_variables('insulationcost-reduction').to_list(),model_output) 
+
+def get_insulation_cost_reduction(working_directory, model_output):
+    data = extract_SD_data(mun_subscripted_variables(working_directory, 'insulationcost-reduction').to_list(),
+                           model_output) 
     data.columns = data.columns.str.replace('Insulation cost reduction', '').str.replace('[','').str.replace(']','').str.replace('"', '')
     return data
 
-def get_new_construction(model_output):
-    data = extract_SD_data(mun_subscripted_variables('construction').to_list(),model_output) 
+
+def get_new_construction(working_directory, model_output):
+    data = extract_SD_data(mun_subscripted_variables(working_directory, 'construction').to_list(),
+                           model_output) 
     data.columns = data.columns.str.replace('New Construction', '').str.replace('[','').str.replace(']','').str.replace('"', '')
     return data
 
-def get_demolition(model_output):
-    data = extract_SD_data(mun_subscripted_variables('demolition').to_list(),model_output) 
+
+def get_demolition(working_directory, model_output):
+    data = extract_SD_data(mun_subscripted_variables(working_directory, 'demolition').to_list(),model_output) 
     data.columns = data.columns.str.replace('Demolition per municipality', '').str.replace('[','').str.replace(']','').str.replace('"', '')
     return data
 
-def get_new_energy_use(model_output):
-    data = extract_SD_data(mun_subscripted_variables('e-use_new-construction').to_list(),model_output) 
+
+def get_new_energy_use(working_directory, model_output):
+    data = extract_SD_data(mun_subscripted_variables(working_directory, 'e-use_new-construction').to_list(),
+                           model_output) 
     data.columns = data.columns.str.replace('Average Heating Energy use new construction', '').str.replace('[','').str.replace(']','').str.replace('"', '')
     return data
 
-def save_ABM_output():
+
+def save_ABM_output(filepath_netlogo, filepath_vensim):
     systems_output = pd.DataFrame()
-    systems_data = pd.read_csv(filepath_netlogo + 'systems.csv',header = None)
+    systems_data = pd.read_csv(os.path.join(filepath_netlogo, 'systems.csv'),
+                               header=None)
     for i in range (355):
         systems_output = systems_output.append( systems_data[i].str.split(',').apply(pd.Series))
-    systems_output = systems_output.rename(columns = {1: 'Municipality', 0:'Year',2:'LT', 3:"MT", 4: "HT", 5: "AHP", 6 : "GHP", 7: 'Gas'}).set_index('Municipality').astype(float)
+    systems_output = systems_output.rename(columns = {1: 'Municipality', 0:'Year',2:'LT', 3:"MT",
+                                                      4: "HT", 5: "AHP", 6 : "GHP", 7: 'Gas'}).set_index('Municipality').astype(float)
     
     for i in ['LT', 'MT', 'HT', "AHP", "GHP", "Gas"]:
-        systems_output.reset_index().pivot_table(index = 'Year', columns = 'Municipality' , values = i).to_csv(filepath_vensim + 'ABM input/systems_' + i + '.csv')
+        systems_output.reset_index().pivot_table(index = 'Year', columns = 'Municipality' , values = i).to_csv(
+            os.path.join(filepath_vensim, 'ABM input', f'systems_{i}.csv'))
     energy_output = pd.DataFrame()
     
-    energy_data = pd.read_csv(filepath_netlogo + 'energy-change.csv',header = None)
+    energy_data = pd.read_csv(os.path.join(filepath_netlogo, 'energy-change.csv'), header = None)
     
     for i in range (355):
         energy_output = energy_output.append( energy_data[i].str.split(',').apply(pd.Series))
-    energy_output = energy_output.rename(columns = {1: 'Municipality', 0:'Year',2:"Age0to9", 3:"Age10to19", 4:"Age20to29", 5:"Age30to39", 6:"Age40to49", 7:"Age50to59", 8:"Age60to69", 9:"Age70to79", 10:"Age80to89", 11:"Age90to99", 12:"Age100plus"}).set_index('Municipality').astype(float)
+    energy_output = energy_output.rename(columns = {1: 'Municipality', 0:'Year',2:"Age0to9",
+                                                    3:"Age10to19", 4:"Age20to29", 5:"Age30to39",
+                                                    6:"Age40to49", 7:"Age50to59", 8:"Age60to69",
+                                                    9:"Age70to79", 10:"Age80to89", 11:"Age90to99",
+                                                    12:"Age100plus"}).set_index('Municipality').astype(float)
     
     for i in ["Age0to9", "Age10to19", "Age20to29", "Age30to39", "Age40to49", "Age50to59", "Age60to69", "Age70to79", "Age80to89", "Age90to99", "Age100plus"]:
-        energy_output.reset_index().pivot_table(index = 'Year', columns = 'Municipality' , values = i).to_csv(filepath_vensim + 'ABM input/energy-change_' + i + '.csv')
+        energy_output.reset_index().pivot_table(index = 'Year', columns = 'Municipality' , values = i).to_csv(
+            os.path.join(filepath_vensim, 'ABM input', f'energy-change_{i}.csv'))
+
 
 def save_ABM_globals(self,ticks):
     results = self.abm_globals
@@ -126,45 +146,7 @@ def save_ABM_globals(self,ticks):
     return results
 
 
-def check_data(result, self):
-        error = False
-        if result.shape[0] != self.run_length:
-            data = np.empty((self.run_length))
-            data[:] = np.NAN
-            data[0:result.shape[0]] = result
-            result = data
-            error = True
-        return result, error
-        
-def get_sd_results(self, experiment):        
-    results = {}
-    error = False
-    for variable in self.output_variables:
-           
-        if "SD_" in variable:
-            variable = variable.replace('SD_', '')
-            res = vensim.get_data(self.vensim_model_output, variable)
-            result, er = check_data(np.asarray(res),self)
-            error = error or er
-            variable = "SD_" + variable
-            results[variable] = result
-            
-                
-    if error:
-        raise CaseError("run not completed", experiment)
-        
-    return results
 
-def get_abm_results(self):
-    dict_output = {}
-    for col in multi_model.abm_globals.columns:
-        dict_output[col] = np.array(multi_model.abm_globals[col])
-    
-    return dict_output
-    
-
-
-# In[4]:
 
 
 class BaseCombinedModel(WorkingDirectoryModel):
@@ -182,17 +164,33 @@ class BaseCombinedModel(WorkingDirectoryModel):
         
     @method_logger(__name__)
     def model_init(self, policy):
-        self.vensim_model = vensim.load_model(os.path.join(self.working_directory, self.vensim_model_dir, self.vensim_model_file))
-        self.vensim_model_output = os.path.join(self.working_directory, self.vensim_model_dir, "Energy_transition_municipality_ema_final.vdfx")
+        super(BaseCombinedModel, self).model_init(policy)
+        self.vensim_model_file = os.path.join(self.working_directory, self.vensim_model_dir,
+                                              self.vensim_model_file)
+        self.vensim_model = vensim.load_model(self.vensim_model_file)
+        self.vensim_model_output = os.path.join(self.working_directory, self.vensim_model_dir,
+                                                "Energy_transition_municipality_ema_final.vdfx")
+
+
+        initialTime = vensim.get_val('INITIAL TIME')
+        finalTime = vensim.get_val('FINAL TIME')
+        timeStep = vensim.get_val('TIME STEP')
+        savePer = vensim.get_val('SAVEPER')
+        
+        if savePer > 0:
+            timeStep = savePer
+    
+        self.run_length = int((finalTime - initialTime) / timeStep + 2)
+
         vensim.be_quiet()
         
         # instantiate netlogo model 
         self.netlogo = pyNetLogo.core.NetLogoLink()
-        self.netlogo.load_model(os.path.join(self.working_directory, self.netlogo_model_dir, self.netlogo_model_file))
+        self.netlogo.load_model(os.path.join(self.working_directory, self.netlogo_model_dir,
+                                             self.netlogo_model_file))
 
-        full_run = True
-        if full_run == True:
-            self.netlogo.command('set View-Municipality "All"')
+
+        self.netlogo.command('set View-Municipality "All"')
         self.netlogo.command('set EMA-controls True')
         self.netlogo.command('Setup')
         self._ts_output_variables = None
@@ -202,9 +200,8 @@ class BaseCombinedModel(WorkingDirectoryModel):
         #netlogo = pyNetLogo.core.NetLogoLink(netlogo_home = 'C:/Program Files/Netlogo 6.1.1', netlogo_version = '6.1')
         
         full_run = True
-        
-        start = datetime.now()
-    
+        filepath_netlogo = os.path.join(self.working_directory, 'ABM', 'Input')
+   
         ticks = 2020
         end = 2060
         
@@ -231,7 +228,7 @@ class BaseCombinedModel(WorkingDirectoryModel):
         while ticks <= end:
             
             # RUN SD until TICKS
-            run_partial_SD_model(ticks, self)
+            run_partial_SD_model(ticks, self.vensim_model_output)
             #get globals from SD
             output_vars = ['Average Gas Price', 'Average Heat Price', 'Average Electricity Price', 'Relocation mobility factor']
             globals_SD_output = extract_SD_data(output_vars, self.vensim_model_output)
@@ -243,11 +240,11 @@ class BaseCombinedModel(WorkingDirectoryModel):
             self.netlogo.command('set relocation-mobility ' + str(globals_SD_output.loc[ticks]['Relocation mobility factor'] ))
         
             # Retrieve subscripted output from Vensim and save to be updated in NetLogo
-            get_demolition(self.vensim_model_output).to_csv(filepath_netlogo + 'Input/SD_output_demolition.csv')
-            get_new_construction(self.vensim_model_output).to_csv(filepath_netlogo + 'Input/SD_output_construction.csv')
-            get_new_energy_use(self.vensim_model_output).to_csv(filepath_netlogo + 'Input/SD_output_e-use_new-construction.csv')
-            get_system_cost_reduction(self.vensim_model_output).to_csv(filepath_netlogo + 'Input/SD_output_systemcost-reduction.csv')
-            get_insulation_cost_reduction(self.vensim_model_output).to_csv(filepath_netlogo + 'Input/SD_output_insulationcost-reduction.csv')
+            get_demolition(self.working_directory, self.vensim_model_output).to_csv(os.path.join(filepath_netlogo, 'SD_output_demolition.csv'))
+            get_new_construction(self.working_directory, self.vensim_model_output).to_csv(os.path.join(filepath_netlogo, 'SD_output_construction.csv'))
+            get_new_energy_use(self.working_directory, self.vensim_model_output).to_csv(os.path.join(filepath_netlogo, 'SD_output_e-use_new-construction.csv'))
+            get_system_cost_reduction(self.working_directory, self.vensim_model_output).to_csv(os.path.join(filepath_netlogo, 'SD_output_systemcost-reduction.csv'))
+            get_insulation_cost_reduction(self.working_directory, self.vensim_model_output).to_csv(os.path.join(filepath_netlogo, 'SD_output_insulationcost-reduction.csv'))
             
             # Ask netlogo to update all subscipted vars from csv's. Unfortunately directly asking netlogo to update
             # the datafiles doesn't work due to the need for strings in strings. 
@@ -261,37 +258,66 @@ class BaseCombinedModel(WorkingDirectoryModel):
             # Save Model Output
            # systems_dict = {}
 
-            save_ABM_globals(self,ticks)
+            save_ABM_globals(self, ticks)
             
             if full_run == True:
                 # Do not overwrite ABM results of full run with partial run
-                save_ABM_output()
+                save_ABM_output(os.path.join(self.working_directory, 'ABM'),
+                                os.path.join(self.working_directory, 'SD'))
         
-            print("Current simulation year: " + f'{ticks}. ' + "Time elapsed: " + f'{datetime.now()-start}.\r' , end = "")
-
             ticks += 1
         
-        SD_results = get_sd_results(self, experiment)
-        ABM_results = get_abm_results(self)
+        SD_results = self.get_sd_results(experiment)
+        ABM_results = self.get_abm_results()
        
         results = SD_results
         results.update(ABM_results)
         
-        end = datetime.now()
-        print ('\nTotal run took ' , end-start )
-
         return results
+
+    def get_sd_results(self, experiment):        
+        results = {}
+        error = False
+        for variable in self.output_variables:
+               
+            if "SD_" in variable:
+                variable = variable.replace('SD_', '')
+                res = vensim.get_data(self.vensim_model_output, variable)
+                result, er = self.check_data(np.asarray(res))
+                error = error or er
+                variable = "SD_" + variable
+                results[variable] = result
+                    
+        if error:
+            raise CaseError("run not completed", experiment)
+            
+        return results
+    
+    
+    def get_abm_results(self):
+        dict_output = {}
+        for col in multi_model.abm_globals.columns:
+            dict_output[col] = np.array(multi_model.abm_globals[col])
+        
+        return dict_output
+
+
+    def check_data(self, result):
+        error = False
+        if result.shape[0] != self.run_length:
+            data = np.empty((self.run_length))
+            data[:] = np.NAN
+            data[0:result.shape[0]] = result
+            result = data
+            error = True
+        return result, error
+
             
 class CombinedModel(SingleReplication, BaseCombinedModel):
                 pass
 
 
-
-
-
 if __name__ == '__main__':
-    
-    
     ema_logging.log_to_stderr(ema_logging.DEBUG)
 
     model = CombinedModel('UrbanEnergyTransition', wd='./model',
@@ -303,13 +329,7 @@ if __name__ == '__main__':
                            RealParameter('ABM_group-behaviour', 0, 1),
                            RealParameter('ABM_Heat-company-ROI', 0.04, 0.15),
                            RealParameter('ABM_Max-income-inv-share', 0.05, 0.15),
-                           RealParameter('ABM_Max-capital-inv-share', 0.05, 0.15)
-                           ]
-    
-                                 # Lookup uncertainties
-                                 # Gas production-cost
-                                 # Share demands housing Sector
-                                 # % renewable import
+                           RealParameter('ABM_Max-capital-inv-share', 0.05, 0.15)]
     
     model.levers = [RealParameter('ABM_insulation-subsidy', 0, 0.5),
                     RealParameter('ABM_LT-production-subsidy', 0, 0.5),
@@ -318,18 +338,7 @@ if __name__ == '__main__':
                     RealParameter('ABM_MT-investment-subsidy', 0, 0.5),
                     RealParameter('SD_"NMTU-factor"', 1, 2),
                     RealParameter('SD_Tax multiplier', 0, 3),
-                    CategoricalParameter('SD_"CO2-tax-scheme"', [0, 1 , 2])
-                       #     LookupUncertainty( values = [
-                       #         #[(2019,0.03),(2030,0.15),(2036,0.4),(2040,0.7),(2043,1),(2050,1.7),(2054,2.3),(2057,3),(2060,3.55)],
-                       #         [(2019,0.03),(2030,0.15),(2036,0.15),(2040,0.15),(2043,0.15),(2050,0.15),(2054,0.15),(2057,0.15),(2060,0.15)],
-                       #         [(2019,0.03),(2030,0.15),(2036,0.3),(2040,0.5),(2043,0.8),(2050,1.2),(2054,1.7),(2057,2.2),(2060,2.8)]],
-                       #                       name = '"CO2-Tax"',lookup_type = 'categories', msi = multi_model.vensim)
-                         ]
-    
-                            # Lookup policies
-                            # CO2-TAX
-                            # Green Gas production
-    
+                    CategoricalParameter('SD_"CO2-tax-scheme"', [0, 1 , 2])]
     
     # FOR ABM: globals only
     model.outcomes = [TimeSeriesOutcome('SD_National Energy System Distribution[Natural Gas]'),
@@ -349,7 +358,7 @@ if __name__ == '__main__':
                       ArrayOutcome('Neighbourhood Data')]
     
       
-    with SequentialEvaluator(model) as evaluator:
+    with MultiprocessingEvaluator(model, n_processes=2) as evaluator:
         experiments, outcomes = evaluator.perform_experiments(10, 2)
       
 #     with MultiprocessingEvaluator(multi_model) as evaluator:
