@@ -15,33 +15,20 @@ from scipy.optimize import brentq
 from datetime import datetime
 import pyNetLogo
 
-from ema_workbench import (RealParameter, ScalarOutcome, Model, Constant, TimeSeriesOutcome ,ArrayOutcome, ema_logging,
-                           perform_experiments, MultiprocessingEvaluator)
-from ema_workbench.em_framework import model
+from ema_workbench import (RealParameter, ScalarOutcome, Constant, CategoricalParameter,
+                           TimeSeriesOutcome, ArrayOutcome, ema_logging,
+                           MultiprocessingEvaluator, SequentialEvaluator)
 from ema_workbench.em_framework.model import (WorkingDirectoryModel, SingleReplication)
 from ema_workbench.connectors import vensim, netlogo
 from ema_workbench.connectors.vensim import set_value
-from ema_workbench.em_framework import model
-from ema_workbench.util import get_module_logger, EMAError, CaseError, method_logger
+from ema_workbench.util import EMAError, CaseError
+from ema_workbench.util.ema_logging import (get_module_logger, method_logger)
 
 _logger = get_module_logger(__name__)
 
-
-# In[13]:
-
-
-filepath_vensim = r'SD/'
-filepath_vensim_vars = r'SD/vensim_vars/'
-filepath_netlogo = r'ABM/'
-
-
-# In[3]:
-
-
-#Works only with 64Bit Pyton and Vensim and NetLogo
-
 def mun_subscripted_variables(x):
-    sub_vars =pd.read_csv(filepath_vensim_vars + 'SD_output_' + x + '.csv', encoding = 'unicode_escape').loc[0].reset_index()['index'][1:]
+    sub_vars =pd.read_csv(filepath_vensim_vars + 'SD_output_' + x + '.csv',
+                          encoding = 'unicode_escape').loc[0].reset_index()['index'][1:]
     return sub_vars
 
 def mun_subscripted_outcomes(y):
@@ -183,21 +170,25 @@ def get_abm_results(self):
 class BaseCombinedModel(WorkingDirectoryModel):
 
     @method_logger(__name__)
-    def __init__(self, name, wd=None, vensim_model_file=None, netlogo_model_file=None):
+    def __init__(self, name, wd=None, vensim_model_file=None,
+                 netlogo_model_file=None):
         super(BaseCombinedModel, self).__init__(name, wd=wd)
         
         self.vensim_model_file = vensim_model_file
         self.netlogo_model_file = netlogo_model_file
+        self.vensim_model_dir = 'SD'
+        self.netlogo_model_dir = 'ABM'
+        
         
     @method_logger(__name__)
     def model_init(self, policy):
-        self.vensim_model = vensim.load_model(os.path.join(self.working_directory, self.vensim_model_file))
-        self.vensim_model_output = os.path.join(self.working_directory, "Energy_transition_municipality_ema_final.vdfx")
+        self.vensim_model = vensim.load_model(os.path.join(self.working_directory, self.vensim_model_dir, self.vensim_model_file))
+        self.vensim_model_output = os.path.join(self.working_directory, self.vensim_model_dir, "Energy_transition_municipality_ema_final.vdfx")
         vensim.be_quiet()
         
         # instantiate netlogo model 
-        self.netlogo = pyNetLogo.core.NetLogoLink(netlogo_home = 'C:/Program Files/Netlogo 6.1.1', netlogo_version = '6.1')
-        self.netlogo.load_model(os.path.join(self.working_directory, "ABM_ema.nlogo"))
+        self.netlogo = pyNetLogo.core.NetLogoLink()
+        self.netlogo.load_model(os.path.join(self.working_directory, self.netlogo_model_dir, self.netlogo_model_file))
 
         full_run = True
         if full_run == True:
@@ -295,14 +286,73 @@ class CombinedModel(SingleReplication, BaseCombinedModel):
                 pass
 
 
-# In[16]:
-
-
-os.path.abspath(os.path.join(filepath_vensim, os.pardir))
-
-
-# In[ ]:
 
 
 
+if __name__ == '__main__':
+    
+    
+    ema_logging.log_to_stderr(ema_logging.DEBUG)
 
+    model = CombinedModel('UrbanEnergyTransition', wd='./model',
+                          vensim_model_file='Energy_transition_municipality_ema_final.vpmx',
+                          netlogo_model_file='ABM_ema.nlogo')
+    
+    model.uncertainties = [RealParameter('SD_Base Investments Renewable', 0.025, 0.125),
+                           RealParameter('SD_Maximum cost reduction', 0.1, 0.5),
+                           RealParameter('ABM_group-behaviour', 0, 1),
+                           RealParameter('ABM_Heat-company-ROI', 0.04, 0.15),
+                           RealParameter('ABM_Max-income-inv-share', 0.05, 0.15),
+                           RealParameter('ABM_Max-capital-inv-share', 0.05, 0.15)
+                           ]
+    
+                                 # Lookup uncertainties
+                                 # Gas production-cost
+                                 # Share demands housing Sector
+                                 # % renewable import
+    
+    model.levers = [RealParameter('ABM_insulation-subsidy', 0, 0.5),
+                    RealParameter('ABM_LT-production-subsidy', 0, 0.5),
+                    RealParameter('ABM_LT-investment-subsidy', 0, 0.5),
+                    RealParameter('ABM_MT-production-subsidy', 0, 0.5),
+                    RealParameter('ABM_MT-investment-subsidy', 0, 0.5),
+                    RealParameter('SD_"NMTU-factor"', 1, 2),
+                    RealParameter('SD_Tax multiplier', 0, 3),
+                    CategoricalParameter('SD_"CO2-tax-scheme"', [0, 1 , 2])
+                       #     LookupUncertainty( values = [
+                       #         #[(2019,0.03),(2030,0.15),(2036,0.4),(2040,0.7),(2043,1),(2050,1.7),(2054,2.3),(2057,3),(2060,3.55)],
+                       #         [(2019,0.03),(2030,0.15),(2036,0.15),(2040,0.15),(2043,0.15),(2050,0.15),(2054,0.15),(2057,0.15),(2060,0.15)],
+                       #         [(2019,0.03),(2030,0.15),(2036,0.3),(2040,0.5),(2043,0.8),(2050,1.2),(2054,1.7),(2057,2.2),(2060,2.8)]],
+                       #                       name = '"CO2-Tax"',lookup_type = 'categories', msi = multi_model.vensim)
+                         ]
+    
+                            # Lookup policies
+                            # CO2-TAX
+                            # Green Gas production
+    
+    
+    # FOR ABM: globals only
+    model.outcomes = [TimeSeriesOutcome('SD_National Energy System Distribution[Natural Gas]'),
+                      TimeSeriesOutcome('SD_Average Gas Price'),
+                      TimeSeriesOutcome('SD_Average Electricity Price'),
+                      TimeSeriesOutcome('SD_Average Heat Price'),
+                      TimeSeriesOutcome('SD_National Energy System Distribution[Natural Gas]'),
+                      TimeSeriesOutcome('SD_National Energy System Distribution[Green Gas]'),
+                      TimeSeriesOutcome('SD_National Energy System Distribution[LT Heating Grid]'),
+                      TimeSeriesOutcome('SD_National Energy System Distribution[MT Heating Grid]'),
+                      TimeSeriesOutcome('SD_National Energy System Distribution[HT Heating Grid]'),
+                      TimeSeriesOutcome('SD_National Energy System Distribution[Air Heat Pump]'),
+                      TimeSeriesOutcome('SD_National Energy System Distribution[Ground Heat Pump]'),
+                      TimeSeriesOutcome('SD_"Cumulative CO2-emmissions"'),
+                      TimeSeriesOutcome('SD_Percentage Renewable Electricity'),
+                      TimeSeriesOutcome('SD_"CO2-Tax"'),
+                      ArrayOutcome('Neighbourhood Data')]
+    
+      
+    with SequentialEvaluator(model) as evaluator:
+        experiments, outcomes = evaluator.perform_experiments(10, 2)
+      
+#     with MultiprocessingEvaluator(multi_model) as evaluator:
+#         results = perform_experiments(multi_model, 1, 4,
+#                                       evaluator=evaluator)
+#     
