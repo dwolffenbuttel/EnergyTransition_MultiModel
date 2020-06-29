@@ -1,0 +1,2415 @@
+{UTF-8}
+Relative national electricity price=
+	Electricity import price with Taxes / National Electricity price with Taxes
+	~	Dmnl
+	~		|
+
+initial percentage foreign renewable Electricity=
+	0.2
+	~	Dmnl
+	~		|
+
+Percentage Renewable import= INTEG (
+	Increase renewable import,
+		initial percentage foreign renewable Electricity)
+	~	
+	~		|
+
+Renewable Electricity cost multiplier=
+	1
+	~	Dmnl
+	~		|
+
+National Electricity price with Taxes=
+	((1-Percentage Renewable Electricity)*(Grey Electricity cost + CO2 Emmission per kWh\
+		*CO2 Tax)+
+	Percentage Renewable Electricity*Renewable Electricity cost * Renewable Electricity cost multiplier\
+		 + Electricity tax)*(1+VAT)
+	~	Euro / kWh
+	~		|
+
+Foreign renewable multiplier=
+	1.2
+	~	Dmnl
+	~		|
+
+Electricity import price with Taxes=
+	IF THEN ELSE(Electricity Import CO2 Tax Switch = 1,
+	(Percentage Renewable import*Electricity Import price+ (1-Percentage Renewable import\
+		) * (Electricity Import price
+	 + CO2 Emmission per kWh*CO2 Tax) + Electricity tax)*(1+VAT),
+	(Electricity Import price + Electricity tax)*(1+VAT))
+	~	Euro / kWh
+	~		|
+
+Increase renewable import=
+	IF THEN ELSE(Percentage Renewable import>0.5, (1-Percentage Renewable import)*(Investment Renewable Electricity Capacity
+	 * Foreign renewable multiplier / National Electricity production)
+	 , Percentage Renewable import*(Investment Renewable Electricity Capacity *Foreign renewable multiplier\
+		 / National Electricity production
+	))
+	~	
+	~		|
+
+Average Electricity import cost=
+	Percentage Renewable import*Renewable Electricity cost * Renewable Electricity cost multiplier
+	+
+	(1-Percentage Renewable import)*Grey Electricity cost
+	~	Euro / kWh
+	~		|
+
+Grey electricity cost ramp=
+	-0.001
+	~	Euro / kWh
+	~		|
+
+Percentage Heat Cold Storage[Municipality]=
+	ZIDZ(System Distributions[Municipality,LT Heating Grid],(System Distributions[Municipality\
+		,LT Heating Grid]+System Distributions[Municipality,MT Heating Grid]+System Distributions\
+		[Municipality,HT Heating Grid]))
+	~	Dmnl
+	~		|
+
+Cost Gas production[Natural Gas]=
+	Natural Gas production cost[Natural Gas] + RAMP( Gas production cost ramp[Natural Gas\
+		] , INITIAL TIME , FINAL TIME  ) ~~|
+Cost Gas production[Green Gas]=
+	Green Gas production cost[Green Gas] + RAMP( Gas production cost ramp[Green Gas] , INITIAL TIME\
+		 , FINAL TIME  )
+	~	Euro / M3
+	~		|
+
+Production scheme green gas=
+	National Gas production[Green Gas] / SUM(National Gas production[Gas Systems!])
+	~	Dmnl
+	~		|
+
+Gas production cost ramp[Gas Systems]=
+	-0.0005, -0.001
+	~	Euro / M3
+	~		|
+
+Total Electricity use Heating grids[Municipality,Heating Grids]=
+	Energy use per group[Municipality,Heating Grids] 
+	/ Efficiency Heating grids[Heating Grids]
+	/ (Percentage Heat Cold Storage[Municipality] * Efficiency HCS + (1-Percentage Heat Cold Storage\
+		[Municipality]) * Efficiency Residual Heat or Geothermal)
+	
+	
+	* GJ per PJ * kWh per GJ
+	~	kWh / Year
+	~		|
+
+Desired Green Gas Share=
+	IF THEN ELSE(Green gas transition scheme = 2 , Exp to green gas , IF THEN ELSE(Green gas transition scheme\
+		 = 1, Linear to green gas , Production scheme green gas ) )
+	~	Dmnl
+	~		|
+
+National Gas Price With Taxes[Gas Systems]=
+	(Cost Gas production[Gas Systems]+Natural gas Tax + CO2 Tax*CO2 emmission per M3[Gas Systems\
+		]) *(1+VAT)
+	~	Euro / M3
+	~	Share Green gas*(Green gas production cost+CO2 emmission per M3[Green Gas]*"CO2-Tax")
+		+
+		(1-Share Green gas)*(Natural gas production cost +CO2 emmission per \
+		M3[Natural Gas]*"CO2-Tax")
+	|
+
+Linear to green gas= WITH LOOKUP (
+	Time,
+		([(2020,0)-(2060,10)],(2020,0.02),(2050,0.99),(2060,0.99) ))
+	~	Dmnl
+	~		|
+
+Green gas transition scheme=
+	1
+	~	Dmnl
+	~		|
+
+Exp to green gas= WITH LOOKUP (
+	Time,
+		([(2019,0)-(2060,1)],(2019,0.05),(2025.39,0.0964912),(2031.32,0.162281),(2037.81,0.311404\
+		),(2043.07,0.517544),(2046.49
+		,0.710526),(2050,0.999),(2060,0.999) ))
+	~	Dmnl
+	~		|
+
+Exponential CO2 tax= WITH LOOKUP (
+	Time,
+		([(2019,0)-(2060,10)],(2019,0.03),(2030,0.15),(2036.43,0.394737),(2040,0.701755),(2043.7\
+		,1.05263),(2050.22,1.71053),(2054.23
+		,2.32456),(2057.37,2.98246),(2060,3.55263) ))
+	~	Euro / Kg
+	~		|
+
+Relative willingness to invest[Age Groups Population]= WITH LOOKUP (
+	Average age per age group[Age Groups Population],
+		([(0,0)-(100,10)],(0,1),(20,2),(60,1),(80,0.25),(100,0) ))
+	~	Dmnl
+	~		|
+
+Relative share population groups[Age Groups Population,Municipality]=
+	Population[Age Groups Population,Municipality]/SUM(Population[Age Groups Population!\
+		,Municipality])
+	~	Dmnl
+	~		|
+
+Linear CO2 tax= WITH LOOKUP (
+	Time,
+		([(0,0)-(3000,10)],(2020,0),(2060,3) ))
+	~	Euro / Kg
+	~		|
+
+Willingness contribution per group[Age Groups Population,Municipality]=
+	Relative willingness to invest[Age Groups Population]*Relative share population groups\
+		[Age Groups Population,Municipality]
+	~	Dmnl
+	~		|
+
+CO2 Tax=
+	IF THEN ELSE(CO2 tax scheme = 1 , Linear CO2 tax * Tax multiplier , IF THEN ELSE(CO2 tax scheme\
+		 = 2, Exponential CO2 tax  * Tax multiplier , 0 ) )
+	~	Euro / Kg
+	~	https://www.rtlz.nl/business/artikel/4767411/co2-emissie-industrie-heffing-nederland-\
+		parijs-klimaat
+		
+		([(2019,0)-(2060,10)],(2019,0.03),(2030,0.15),(2036.43,0.394737),(2040,0.70\
+		1755),(2043.7,1.05263),(2050.22,1.71053),(2054.23,2.32456),(2057.37,2.98246\
+		),(2060,3.55263) )
+	|
+
+CO2 tax scheme=
+	1
+	~	Dmnl
+	~	0: no tax, 1: linear tax: 2: exponential
+	|
+
+Tax multiplier=
+	1
+	~	Dmnl
+	~		|
+
+Average willingness to invest municipality[Municipality]=
+	SUM(Willingness contribution per group[Age Groups Population!,Municipality])
+	~	Dmnl
+	~		|
+
+Insulation investment development[Insulation level]=
+	IF THEN ELSE
+	(
+	Technology Maturity Insulation[Insulation level] > 0.5,
+	((Current insulation investment[Insulation level]) / ( SUM (Current insulation investment\
+		[Insulation level!]))) * (1-Technology Maturity Insulation
+	[Insulation level] / Administration Period),
+	((Current insulation investment[Insulation level]) / ( SUM (Current insulation investment\
+		[Insulation level!]))) *   (Technology Maturity Insulation
+	[Insulation level] / Administration Period)) * (SUM (Current insulation investment[Insulation level\
+		!])*6)
+	~	Dmnl/Year
+	~	IF THEN ELSE(Technology Maturity Insulation[Insulation level] < 0.5, 
+		(1 - Technology Maturity Insulation[Insulation level]) * (Current insulation \
+		investment[Insulation level] / SUM (Current insulation \
+		investment[Insulation level!]) ), 
+		
+		(Technology Maturity Insulation[Insulation level]) * (Current insulation \
+		investment[Insulation level] / SUM (Current insulation \
+		investment[Insulation level!])) )
+	|
+
+Decomissioning Delay=
+	4
+	~	Year
+	~		|
+
+Decomissioning Green capacity=
+	MAX(0,
+	DELAY3(National Electricity production/National Electricity Demand-1, Decomissioning Delay\
+		) 
+	* National Electricity production)
+	~	kWh / Year / Year
+	~	MAX(0,(National Electricity production/National Electricity Demand)-1) * National \
+		Electricity production
+		
+		MAX(0,
+		DELAY3(National Electricity production/National Electricity Demand-1, Decomissioning \
+		Delay) 
+		)* National Electricity production
+	|
+
+Increase Renewable Electricity=
+	IF THEN ELSE(Percentage Renewable Electricity>0.5, (1-Percentage Renewable Electricity\
+		)*(Investment Renewable Electricity Capacity / National Electricity production)
+	 , Percentage Renewable Electricity*(Investment Renewable Electricity Capacity / National Electricity production\
+		))
+	~	Dmnl/Year
+	~	IF THEN ELSE(Percentage Renewable Electricity>0.5, (1-Percentage Renewable \
+		Electricity)*Investment Renewable Electricity , Percentage Renewable \
+		Electricity*Investment Renewable Electricity)
+	|
+
+Decomissioning Grey Capacity=
+	MIN(
+	(1- Percentage Renewable Electricity) * National Electricity production, 
+	MAX(0, 
+	(National Electricity production/National Electricity Demand - 1) 
+	* National Electricity production 
+	))*Relative national electricity price
+	~	kWh/Year/Year
+	~	(MAX(1,(National Electricity production /National Electricity \
+		Demand)-1))/Administration Period *National Electricity production
+		
+		(MAX(0,(National Electricity production /National Electricity \
+		Demand)-1))/Administration Period *National Electricity production
+		 * (1- Percentage Renewable Electricity)
+	|
+
+Investment Renewable Electricity=
+	Base Investments Renewable/Relative cost Renewable * (National Electricity production\
+		/National Electricity Demand)
+	~	1/Year
+	~		|
+
+National Electricity production= INTEG (
+	Investment Renewable Electricity Capacity-Decomissioning Green capacity-Decomissioning Grey Capacity\
+		-Decomissioning Green capacity,
+		Initial National Electricity production)
+	~	kWh / Year
+	~		|
+
+Insulation improvement[Housing Age,Municipality]=
+	Insulation potential[Housing Age,Municipality]*Energy Imporvement timestep[Municipality\
+		,Housing Age] * Years per group[Municipality]
+	~	GJ/House/Year/Year
+	~		|
+
+Energy Imporvement timestep[Municipality,Age0to9]=
+	g1[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age10to19]=
+	g2[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age20to29]=
+	g3[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age30to39]=
+	g4[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age40to49]=
+	g5[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age50to59]=
+	g6[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age60to69]=
+	g7[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age70to79]=
+	g8[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age80to89]=
+	g9[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age90to99]=
+	g10[Municipality] ~~|
+Energy Imporvement timestep[Municipality,Age100plus]=
+	g11[Municipality]
+	~	1 / Year
+	~		|
+
+g8[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age70to79.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g9[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age80to89.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g3[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age20to29.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g4[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age30to39.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g1[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age0to9.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g10[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age90to99.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g11[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age100plus.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g2[Municipality]:INTERPOLATE::=
+	GET DIRECT DATA( 'ABM input/energy-change_Age10to19.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g6[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age50to59.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g7[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age60to69.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+g5[Municipality]:=
+	GET DIRECT DATA( 'ABM input/energy-change_Age40to49.csv' , '' , 'A', 'B2' )
+	~	1 / Year
+	~		|
+
+Efficiency Heat Pumps[Heat Pumps]=
+	3.7, 4.4, 2.4
+	~	Dmnl
+	~		|
+
+Share Gas[Municipality]:INTERPOLATE::=
+	GET DIRECT DATA( 'ABM input/systems_Gas.csv' , '' , 'A', 'B2' )
+	~	Dmnl
+	~		|
+
+Share LT Grid[Municipality]:INTERPOLATE::=
+	GET DIRECT DATA( 'ABM input/systems_LT.csv' , '' , 'A', 'B2' )
+	~	Dmnl
+	~		|
+
+Total Electricity use Heat pumps[Municipality,Heat Pumps]=
+	Energy use per group[Municipality,Heat Pumps] / Efficiency Heat Pumps[Heat Pumps]
+	
+	*GJ per PJ
+	*kWh per GJ
+	~	kWh / Year
+	~		|
+
+Share HT Grid[Municipality]:INTERPOLATE::=
+	GET DIRECT DATA( 'ABM input/systems_HT.csv' , '' , 'A', 'B2' )
+	~	Dmnl
+	~		|
+
+Share MT Grid[Municipality]:INTERPOLATE::=
+	GET DIRECT DATA( 'ABM input/systems_MT.csv' , '' , 'A', 'B2' )
+	~	Dmnl
+	~		|
+
+Total Stock per System Municipality[Municipality,Energy System]=
+	System Distributions[Municipality, Energy System] *Total Stock Municipality[Municipality\
+		]
+	~	House
+	~		|
+
+Share Air HP[Municipality]:=
+	GET DIRECT DATA( 'ABM input/systems_AHP.csv' , '' , 'A', 'B2' )
+	~	Dmnl
+	~		|
+
+Share Ground HP[Municipality]:=
+	GET DIRECT DATA( 'ABM input/systems_GHP.csv' , '' , 'A', 'B2' )
+	~	Dmnl
+	~		|
+
+System Distributions[Municipality, Natural Gas]=
+	(1 - Desired Green Gas Share) * Share Gas[Municipality] ~~|
+System Distributions[Municipality,Green Gas]=
+	Desired Green Gas Share*Share Gas[Municipality] ~~|
+System Distributions[Municipality,LT Heating Grid]=
+	Share LT Grid[Municipality] ~~|
+System Distributions[Municipality,MT Heating Grid]=
+	Share MT Grid[Municipality] ~~|
+System Distributions[Municipality,HT Heating Grid]=
+	Share HT Grid[Municipality] ~~|
+System Distributions[Municipality,Air Heat Pump]=
+	Share Air HP[Municipality] ~~|
+System Distributions[Municipality,Ground Heat Pump]=
+	Share Ground HP[Municipality] ~~|
+System Distributions[Municipality,Hybrid Heat Pump]=
+	0
+	~	Dmnl
+	~		|
+
+Energy use per group[Municipality, Energy System]=
+	Total Stock per System Municipality[Municipality,Energy System] * SUM(Average heating use per municipality\
+		[Housing Age!,Municipality]) / GJ per PJ
+	~	PJ/Year
+	~	IF THEN ELSE(EMA controls = 1, 
+		Stock per municipality2[Municipality]*System Distributions[Municipality, Energy \
+		System]*Average Heating Energy use
+		[Housing Age,Municipality]/GJ per PJ , 
+		Stock per municipality2[Municipality]*Municipal Energy System Distribution[Energy \
+		System, Municipality]*Average Heating Energy use
+		[Housing Age,Municipality]/GJ per PJ )
+	|
+
+Average heating use per municipality[Housing Age,Municipality]=
+	Share age groups[Housing Age,Municipality]*Average Heating Energy use[Housing Age,Municipality\
+		]
+	~	GJ/Year/House
+	~		|
+
+Share age groups[Housing Age,Municipality]=
+	Housing Stock[Housing Age,Municipality] / SUM (Housing Stock[Housing Age!,Municipality\
+		])
+	~	Dmnl
+	~		|
+
+Gas price no CO2 tax[Gas Systems]=
+	(Gas price[Gas Systems]-CO2 emmission per M3[Gas Systems]*CO2 Tax)
+	~	Euro / M3
+	~		|
+
+NMTU factor=
+	1
+	~	Dmnl
+	~		|
+
+Average Heat Price=
+	((Gas price no CO2 tax[Natural Gas] * (1 - Share Green gas)) + (Gas price no CO2 tax\
+		[Green Gas] * (Share Green gas))) * NMTU factor / Net Caloric value
+	~	Euro / GJ
+	~		|
+
+Current insulation investment[Insulation level]:INTERPOLATE::=
+	GET DIRECT DATA( 'ABM input/insulation-investment.csv' , '' ,'A', 'B2' )
+	~	Dmnl/Year
+	~		|
+
+Maximum cost reduction=
+	0.4
+	~	Dmnl
+	~		|
+
+Insulation cost reduction[Insulation level]=
+	1 - (Technology Maturity Insulation[Insulation level]- Initial Maturity Insulation [\
+		Insulation level])  * Maximum cost reduction
+	~	Dmnl
+	~		|
+
+Technology Maturity Insulation[Insulation level]= INTEG (
+	Insulation investment development[Insulation level],
+		Initial Maturity Insulation[Insulation level])
+	~	Dmnl
+	~		|
+
+Insulation level:
+	Label F, Label E, Label D, Label C, Label B, Label A
+	~	
+	~		|
+
+System cost reduction[Energy System]=
+	1 - (Technology Maturity Systems[Energy System] - Initial Maturity Technologies [Energy System\
+		]) * Maximum cost reduction
+	~	Dmnl
+	~		|
+
+Initial Maturity Insulation[Insulation level]=
+	0.5,0.4,0.3,0.2,0.1,0.05
+	~	Dmnl
+	~		|
+
+Average Heating Energy use new construction[Municipality]=
+	Years per group[Municipality]*Energy use New Construction[Age0to9,Municipality]
+	~	GJ/House/Year
+	~		|
+
+Demolition per municipality[Municipality]=
+	SUM(Demolition[Municipality,Housing Age!])
+	~	House/Year
+	~		|
+
+New Construction[Municipality]=
+	DELAY3I(Planning[Municipality]
+	,Construction time,
+	In construction[Municipality]/Construction time
+	)
+	~	House / Year
+	~		|
+
+Ageing compensation factor[Municipality]=
+	SUM(Deaths[Age Groups Population!,Municipality])/Births[Municipality]
+	~	Dmnl
+	~		|
+
+Electricity tax= WITH LOOKUP (
+	Time,
+		([(2019,0)-(2060,0.1)],(2019,0.0986),(2020,0.0977),(2060,0.0617) ))
+	~	Euro / kWh
+	~		|
+
+Natural gas Tax= WITH LOOKUP (
+	Time,
+		([(2019,0)-(2060,1)],(2019,0.2931),(2020,0.333),(2021,0.343),(2022,0.353),(2023,0.363\
+		),(2024,0.373),(2025,0.383),(2026,0.393),(2060,0.75) ))
+	~	Euro / M3
+	~	https://www.rijksoverheid.nl/onderwerpen/belastingplan/belastingwijzigingen\
+		-voor-ons-allemaal/energiebelasting
+	|
+
+VAT=
+	0.21
+	~	Dmnl
+	~		|
+
+Increase Green Gas production[Green Gas]=
+	Green Gas investments
+	~	M3/Year/Year
+	~		|
+
+Relative cost Renewable=
+	Renewable with Tax/National Electricity price with Taxes / Relative national electricity price
+	~	Dmnl
+	~		|
+
+Gas Import price with Taxes[Gas Systems]=
+	(Gas import price[Gas Systems]+CO2 Tax*CO2 emmission per M3[Gas Systems]+Natural gas Tax\
+		)*(1+VAT)
+	~	Euro / M3
+	~		|
+
+Renewable with Tax=
+	(Renewable Electricity cost+Electricity tax)*(1+VAT)
+	~	Euro / kWh
+	~		|
+
+Initial National Electricity production=
+	9.7e+10
+	~	kWh/Year
+	~		|
+
+National Gas production[Natural Gas]= INTEG (
+	-Decline Natural Gas production[Natural Gas],
+		Initial National Gas production[Natural Gas]) ~~|
+National Gas production[Green Gas]= INTEG (
+	+Increase Green Gas production[Green Gas],
+		Initial National Gas production[Green Gas])
+	~	M3 / Year
+	~	https://www.pbl.nl/sites/default/files/downloads/pbl-2019-klimaat-en-energi\
+		everkenning-2019-3508.pdf
+	|
+
+Efficiency Residual Heat or Geothermal=
+	20
+	~	Dmnl
+	~		|
+
+Investment Renewable Electricity Capacity=
+	Investment Renewable Electricity* National Electricity production
+	~	kWh/Year/Year
+	~	Investment Renewable Electricity*Percentage Renewable Electricity * \
+		National Electricity production
+	|
+
+Decline Natural Gas production[Natural Gas]=
+	IF THEN ELSE(National Gas production[Natural Gas]/Administration Period-Decomissioning Natural gas production\
+		>0, Decomissioning Natural gas production , National Gas production[Natural Gas]/ Administration Period\
+		 )
+	~	M3/Year/Year
+	~		|
+
+Efficiency HCS=
+	3.5
+	~	Dmnl
+	~		|
+
+Green Gas investments=
+	1.7e+08
+	~	M3/Year/Year
+	~	Growth to 2 bcm in 2050 CE Delft
+	|
+
+Decomissioning Natural gas production= WITH LOOKUP (
+	Time,
+		([(2019,0)-(2060,3e+09)],(2019,2.2e+09),(2030,2.2e+09),(2030,1e+09),(2060,1e+09) ))
+	~	M3/Year/Year
+	~		|
+
+Initial National Gas production[Gas Systems]=
+	3.5e+10,3e+08
+	~	M3/Year
+	~		|
+
+Electricity Import price=
+	Average Electricity import cost * (Foreign Electricity Demand/Foreign Electricity Supply\
+		)
+	~	Euro / kWh
+	~		|
+
+Foreign Renewable Electricity production cost=
+	0.055
+	~	Euro / kWh
+	~		|
+
+Foreign Electricity Demand=
+	National Electricity Demand/Relative Share Electricity Demand Netherlands+Electricity Trade
+	~	kWh / Year
+	~		|
+
+Administration Period=
+	1
+	~	Year
+	~		|
+
+Domestic Natural gas production cost=
+	0.15
+	~	Euro / M3
+	~		|
+
+Foreign Gas Supply[Gas Systems]=
+	DELAY3(Foreign Gas Demand[Gas Systems], Supply response Delay Gas)
+	~	M3 / Year
+	~		|
+
+Insulation potential[All but Youngest and Oldest,Municipality]=
+	Average Heating Energy use[All but Youngest and Oldest,Municipality]-Ageing Energy use\
+		[All but Youngest and Oldest
+	,Municipality]*Administration Period ~~|
+Insulation potential[Age0to9,Municipality]=
+	Average Heating Energy use[Age0to9,Municipality]-Ageing Energy use[Age0to9,Municipality\
+		]*Administration Period ~~|
+Insulation potential[Age100plus,Municipality]=
+	Average Heating Energy use[Age100plus,Municipality]-Compensation growing 100plus group\
+		[Age100plus
+	,Municipality]*Administration Period
+	~	GJ/Year/House
+	~		|
+
+Natural Gas production cost[Natural Gas]=
+	0.15
+	~	Euro / M3
+	~		|
+
+Average Gas Price=
+	Share Green gas*Gas price[Green Gas]
+	+
+	(1-Share Green gas)*Gas price[Natural Gas]
+	~	Euro / M3
+	~		|
+
+Electricity Import CO2 Tax Switch=
+	1
+	~	Dmnl
+	~		|
+
+Gas Trade[Gas Systems]=
+	National Gas demand[Gas Systems] - National Gas production[Gas Systems]
+	~	M3 / Year
+	~		|
+
+Foreign Electricity Supply=
+	DELAY3(Foreign Electricity Demand, Supply response delay Electricity)
+	~	kWh / Year
+	~		|
+
+Average Electricity Price=
+	Share Domestic Electricity Production*National Electricity price with Taxes
+	+
+	(1- Share Domestic Electricity Production) *Electricity import price with Taxes
+	~	Euro / kWh
+	~		|
+
+Relative Share Electricity Demand Netherlands=
+	0.0307
+	~	Dmnl
+	~	https://www.indexmundi.com/map/?t=0&v=81&r=eu&l=nl
+	|
+
+Relative Share Gas Demand Netherlands=
+	0.072
+	~	Dmnl
+	~	https://www.indexmundi.com/map/?t=0&v=137&r=eu&l=nl
+	|
+
+Supply response delay Electricity=
+	7.5
+	~	Year
+	~		|
+
+Supply response Delay Gas=
+	7.5
+	~	Year
+	~		|
+
+Share Domestic Electricity Production=
+	MIN(1,National Electricity production/National Electricity Demand)
+	~	Dmnl
+	~		|
+
+Share Domestic gas production[Gas Systems]=
+	MIN(1,National Gas production[Gas Systems]/National Gas demand[Gas Systems])
+	~	Dmnl
+	~		|
+
+Gas price[Gas Systems]=
+	Share Domestic gas production[Gas Systems]*National Gas Price With Taxes[Gas Systems\
+		]
+	+
+	(1 - Share Domestic gas production[Gas Systems]) *Gas Import price with Taxes[Gas Systems\
+		]
+	~	Euro / M3
+	~		|
+
+Domestic Gas production cost[Natural Gas]=
+	Domestic Natural gas production cost ~~|
+Domestic Gas production cost[Green Gas]=
+	Domestic Green gas production cost
+	~	Euro / M3
+	~		|
+
+Foreign Gas Demand[Gas Systems]=
+	National Gas demand[Gas Systems]/Relative Share Gas Demand Netherlands+Gas Trade[Gas Systems\
+		]
+	~	M3/Year
+	~		|
+
+Gas import price[Gas Systems]=
+	Cost Gas production[Gas Systems]*(Foreign Gas Demand[Gas Systems]/Foreign Gas Supply\
+		[Gas Systems])
+	~	Euro / M3
+	~		|
+
+Green Gas production cost[Green Gas]=
+	0.17
+	~	Euro / M3
+	~	ASSUMPTION
+	|
+
+Share Gas demand Housing sector=
+	0.32
+	~	Dmnl
+	~	https://opendata.cbs.nl/statline/#/CBS/nl/dataset/83989NED/table?ts=1582796\
+		541253
+	|
+
+National Gas demand[Gas Systems]=
+	National Gas use[Gas Systems]/Share Gas demand Housing sector
+	~	M3 / Year
+	~		|
+
+Fossil fuel price=
+	0.03
+	~	Euro / kWh
+	~		|
+
+Share Electricity Demand Housing sector=
+	0.25
+	~	Dmnl
+	~	https://opendata.cbs.nl/statline/#/CBS/nl/dataset/83989NED/table?ts=1582796\
+		541253
+	|
+
+Renewable Electricity cost= WITH LOOKUP (
+	Time,
+		([(2019,0)-(2060,0.1)],(2019,0.09),(2023,0.06),(2030,0.04),(2060,0.03) ))
+	~	Euro / kWh
+	~		|
+
+Grey Electricity cost=
+	0.04 + RAMP(Grey electricity cost ramp, INITIAL TIME, FINAL TIME)
+	~	Euro / kWh
+	~		|
+
+Base Investments Renewable=
+	0.1
+	~	1 / Year
+	~	https://opendata.cbs.nl/statline/#/CBS/nl/dataset/83109NED/table?dl=1FBA8
+	|
+
+Share Green gas=
+	National Gas demand[Green Gas] / SUM(National Gas demand[Gas Systems!])
+	~	Dmnl
+	~		|
+
+Electricity Trade=
+	National Electricity Demand-National Electricity production
+	~	kWh/Year
+	~		|
+
+Domestic Green gas production cost=
+	0.17
+	~	Euro / M3
+	~		|
+
+Fuel share production cost=
+	0.85
+	~	Dmnl
+	~		|
+
+National Electricity Demand=
+	National Electricity use /Share Electricity Demand Housing sector
+	~	kWh / Year
+	~		|
+
+Foreign Grey Electricity production cost=
+	0.05
+	~	Euro / kWh
+	~		|
+
+Ageing Energy use[All but Youngest and Oldest,Municipality]= 
+	DELAY N (
+	Ageing Energy use[Previous age group,Municipality]-Insulation improvement[All but Youngest and Oldest\
+		,Municipality],
+	
+	Years per group[Municipality],
+	
+	(Average Heating Energy use[All but Youngest and Oldest,Municipality])/Years per group\
+		[Municipality]
+	
+	,5) ~~|
+Ageing Energy use[Age0to9,Municipality]= 
+	DELAY N( Energy use New Construction[Age0to9,Municipality] -Insulation improvement[Age0to9\
+		,Municipality]
+	
+	, Years per group[Municipality]
+	
+	, Average Heating Energy use[Age0to9,Municipality]/Years per group[Municipality]
+	
+	, 5)
+	~	GJ/House/Year/Year
+	~		|
+
+Percentage Renewable Electricity= INTEG (
+	Increase Renewable Electricity,
+		Initial percentage Renewable Electricity)
+	~	Dmnl
+	~		|
+
+Energy improvement investment= WITH LOOKUP (
+	Time,
+		([(2019,0)-(2060,0.05)],(2019,0.0125),(2022.01,0.0155702),(2024.77,0.0203947),(2028.78\
+		,0.0339912),(2032.54,0.0407895),(2036.43,0.0421053),(2041.19,0.041886),(2046.71,0.0337719\
+		),(2052.1,0.0195175),(2054.36,0.0116228),(2055.24,0.00921053),(2055.74,0.00811404),\
+		(2057.99,0.00482456),(2060,0.00285088) ))
+	~	Dmnl/Year
+	~		|
+
+National Gas use[Gas Systems]=
+	SUM(Total Gas use per type[Municipality!,Gas Systems])
+	~	M3 / Year
+	~		|
+
+Initial percentage Renewable Electricity=
+	0.074
+	~	Dmnl
+	~		|
+
+Economy Business cycle=
+	Expected Amplitude*SIN((Time-Starting point mid)/Expected period*Pi)+Base growth
+	~	Dmnl/Year
+	~		|
+
+Efficiency Heating grids[Heating Grids]=
+	0.9,0.75,0.65
+	~	Dmnl
+	~	http://www.wiefm.eu/wp-content/uploads/2019/05/eindrapport-wiefm-WP4-techni\
+		sche-karakterisering.pdf
+	|
+
+National Electricity use=
+	SUM(Total Electricity use[Municipality!])
+	~	kWh / Year
+	~		|
+
+kWh per GJ=
+	277.78
+	~	kWh / GJ
+	~	https://unit-converter.gasunie.nl/
+	|
+
+Average Electricity use Applicances[Municipality,Housing Age]= INTEG (
+	Change applicances use[Municipality,Housing Age],
+		Initial electricity use[Housing Age,Municipality])
+	~	kWh/House/Year
+	~		|
+
+CO2 emmission per M3[Gas Systems]=
+	1.884, 0.723
+	~	Kg / M3
+	~	https://www.co2emissiefactoren.nl/lijst-emissiefactoren/
+	|
+
+Average Heating Energy use[Age0to9,Municipality]= INTEG (
+	Energy use New Construction[Age0to9,Municipality]-Ageing Energy use[Age0to9,Municipality
+	] - Insulation improvement[Age0to9,Municipality],
+		Initial Energy use[Age0to9,Municipality]) ~~|
+Average Heating Energy use[All but Youngest and Oldest,Municipality]= INTEG (
+	Ageing Energy use[Previous age group,Municipality]-Ageing Energy use[All but Youngest and Oldest
+	,Municipality] -Insulation improvement[All but Youngest and Oldest,Municipality],
+		Initial Energy use[All but Youngest and Oldest,Municipality]) ~~|
+Average Heating Energy use[Age100plus,Municipality]= INTEG (
+	Ageing Energy use[Age90to99,Municipality]-Compensation growing 100plus group[Age100plus\
+		,Municipality
+	],
+		Initial Energy use[Age100plus,Municipality])
+	~	GJ/Year/House
+	~		|
+
+Total Appliances use[Municipality,Housing Age]=
+	Housing Stock[Housing Age,Municipality]*Average Electricity use Applicances[Municipality\
+		,Housing Age]
+	~	kWh/Year
+	~		|
+
+Cumulative CO2 emmissions= INTEG (
+	Yearly CO2 emmissions Electricity+Yearly CO2 emmissions Gas,
+		0)
+	~	Kg
+	~		|
+
+Yearly CO2 emmissions Gas=
+	SUM(National Gas use[Gas Systems!]*CO2 emmission per M3[Gas Systems!])
+	~	Kg / Year
+	~		|
+
+Total Gas use per type[Municipality,Gas Systems]=
+	Energy use per group[Municipality,Gas Systems] * GJ per PJ / Net Caloric value
+	~	M3 / Year
+	~		|
+
+CO2 Emmission per kWh=
+	0.556
+	~	Kg / kWh
+	~		|
+
+Yearly CO2 emmissions Electricity=
+	National Electricity use*CO2 Emmission per kWh*(1-Percentage Renewable Electricity)
+	~	Kg/Year
+	~		|
+
+Total Electricity use[Municipality]=
+	SUM(Total Appliances use[Municipality,Housing Age!])
+	+SUM(Total Electricity use Heat pumps[Municipality,Heat Pumps!])
+	+SUM(Total Electricity use Heating grids[Municipality,Heating Grids!])
+	~	kWh / Year
+	~		|
+
+Municipal Energy use[Municipality,Energy System]=
+	Energy use per group[Municipality ,Energy System]
+	~	PJ/Year
+	~		|
+
+GJ per PJ=
+	1e+06
+	~	GJ/PJ
+	~		|
+
+Initial Energy use[Housing Age,Municipality]= INITIAL(
+	Estimated Initial Energy use in M3[Housing Age,Municipality]*Net Caloric value)
+	~	GJ / Year / House
+	~	/SUM(Initial Systems[Natural Gas,Municipality,Housing Age!])
+	|
+
+National Energy use[Energy System]=
+	SUM(Municipal Energy use[Municipality!,Energy System])
+	~	PJ/Year
+	~		|
+
+Net Caloric value=
+	0.03165
+	~	GJ / M3
+	~	https://unit-converter.gasunie.nl/: 0.03517
+		https://wetten.overheid.nl/BWBR0035367/2019-01-01#Bijlage2: 0.044
+	|
+
+Initial electricity use[Housing Age, Municipality]=
+	GET DIRECT CONSTANTS('Input data\Initial Electricity use.csv', '' , 'b2*' )
+	~	kWh/House/Year
+	~		|
+
+Change applicances use[Municipality,Housing Age]=
+	Average Electricity use Applicances[Municipality,Housing Age]*(Expected change applicances use\
+		-1)
+	~	kWh/House/Year/Year
+	~		|
+
+Initial percentage per age group[Housing Age]= INITIAL(
+	SUM(Housing Stock[Housing Age,Municipality!])/SUM(Total Stock Municipality[Municipality\
+		!]))
+	~	Dmnl
+	~		|
+
+Distribution heat pump age groups[Housing Age]=
+	0.4,0.3,0.2,0.1,0,0,0,0,0,0,0
+	~	Dmnl
+	~	Assumption
+	|
+
+Deaths[Age Groups Population,Municipality]=
+	Population[Age Groups Population,Municipality] * Mortality rate[Age Groups Population\
+		]
+	~	Person/Year
+	~		|
+
+Delay Business Cycle effect=
+	2
+	~	Year
+	~		|
+
+Base growth=
+	0.01
+	~	1/Year
+	~		|
+
+GDP initial=
+	8.001e+11
+	~	Euro/Year
+	~	https://www.cpb.nl/sites/default/files/omnidownload/CPB-Kerngegevenstabel-r\
+		aming-maart-2019_0.pdf
+	|
+
+Business cycle effect factor=
+	4
+	~	Dmnl
+	~		|
+
+GDP= INTEG (
+	Growth,
+		GDP initial)
+	~	Euro/Year
+	~		|
+
+Starting point mid=
+	2014
+	~	Year [2000,2040]
+	~		|
+
+Pi=
+	3.1415
+	~	Dmnl
+	~		|
+
+Expected period=
+	8
+	~	Year
+	~		|
+
+Expected Amplitude=
+	0.025
+	~	Dmnl/Year
+	~		|
+
+Mortality rate[Age Groups Population]=
+	a * EXP ( - Life expectancy * EXP ( - c * Average age per age group[Age Groups Population\
+		]) ) + Average Mortality per Age
+	~	Person/Person/Year
+	~		|
+
+Growth=
+	Economy Business cycle*GDP
+	~	Euro/Year/Year
+	~		|
+
+Relocation mobility factor=
+	SMOOTH( (Economy Business cycle * Business cycle effect factor)+1 , Delay Business Cycle effect\
+		 )
+	~	Dmnl/Year
+	~	https://www.cbs.nl/-/media/_pdf/2019/37/2019st30%20regionale%20bevolkings-%\
+		20en%20huishoudensprognose%202019-2050%20demografische%20veronderstellingen\
+		.pdf
+	|
+
+Housing Demand Presure factor=
+	0.01
+	~	Year
+	~		|
+
+Houseseeking population[Municipality]=
+	(Relocation mobility factor*Housing Demand Presure factor)*Total Population Municipality\
+		[Municipality]
+	~	Person
+	~		|
+
+initial in construction[Municipality]= INITIAL(
+	MAX(0,-Housing Balance Municipality[Municipality]/(Planning Delay/Construction time)\
+		))
+	~	House
+	~		|
+
+Housing Balance National=
+	SUM(Housing Balance Municipality[Municipality!])
+	~	House
+	~		|
+
+Ageing stock[All but Youngest and Oldest,Municipality]= 
+	DELAY N (Ageing stock[Previous age group,Municipality], Years per group[Municipality\
+		], Housing Stock[All but Youngest and Oldest
+	,Municipality]/Years per group[Municipality],5) ~~|
+Ageing stock[Age0to9,Municipality]= 
+	DELAY N (New Construction[Municipality], Years per group[Municipality], Housing Stock\
+		[Age0to9,Municipality
+	]/Years per group[Municipality], 5)
+	~	House/Year
+	~		|
+
+Compensation growing 100plus group[Age100plus,Municipality]=
+	Ageing Energy use[Age90to99,Municipality]
+	+
+	ZIDZ(
+	Difference 90 100[Municipality],
+	Average age 100plus[Age100plus,Municipality]-Start 100plus group[Municipality]
+	)
+	~	GJ/House/Year/Year
+	~	Average Natural gas use[Age100plus,Municipality,House type,House \
+		size]/Average age 100plus[Age100plus,Municipality,House type,House size]^2 \
+		+ Ageing Natural gas use[Age90to99,Municipality,House type,House size]
+	|
+
+Difference 90 100[Municipality]=
+	Average Heating Energy use[Age100plus,Municipality] - Average Heating Energy use[Age90to99\
+		,Municipality]
+	~	GJ/House/Year
+	~		|
+
+Demolition[Municipality,Housing Age]=
+	Housing Stock[Housing Age,Municipality]*Demolition percentage[Municipality]/Demolition Delay
+	~	House/Year
+	~	MAX(0,Housing Balance Municipality[Municipality])/SUM(Housing Stock[Housing \
+		Age!,Municipality,House type!,House size!])*Housing Stock[Housing \
+		Age,Municipality,House type,House size]
+		/Demolition Delay
+	|
+
+Average age 100plus[Age100plus,Municipality]= INTEG (
+	Change average age 100plus[Age100plus,Municipality],
+		Initial average age 100plus[Municipality])
+	~	Year
+	~		|
+
+Expected change applicances use=
+	0.99
+	~	kWh/kWh/Year
+	~		|
+
+Energy use New Construction[Age0to9,Municipality]=
+	Average Heating Energy use[Age0to9,Municipality] /Years per group[Municipality] * (1\
+		- Improvement factor)
+	~	GJ/House/Year/Year
+	~		|
+
+Demolition percentage[Municipality]=
+	MAX(0,Housing Balance Municipality[Municipality])/Total Stock Municipality[Municipality\
+		]
+	~	Dmnl
+	~		|
+
+Planning[Municipality]=
+	MAX(0,-Housing Balance Municipality[Municipality])/Planning Delay
+	~	House / Year
+	~		|
+
+Improvement factor=
+	0.03
+	~	Dmnl
+	~		|
+
+House size:
+	"15to50m2", "50to75m2", "75to100m2", "100to150m2", "150to250m2", "250to500m2"
+	~	
+	~		|
+
+Estimated Initial Energy use in M3[Housing Age, Municipality]=
+	GET DIRECT CONSTANTS('Input data\Initial Gas use.csv', '' , 'b2*' )
+	~	M3/House/Year
+	~		|
+
+Initial Housing stock[Housing Age, Municipality]=
+	GET DIRECT CONSTANTS('Input data\Initial Housing Stock.csv', '' , 'b2*' )
+	~	House
+	~		|
+
+Relative Change 100plus group[Age100plus,Municipality]=
+	ZIDZ(Ageing stock[Age90to99,Municipality],Housing Stock[Age100plus,Municipality])
+	~	House/House/Year
+	~		|
+
+Total Stock Municipality[Municipality]=
+	SUM(Housing Stock[Housing Age!,Municipality])
+	~	House
+	~		|
+
+Change average age 100plus[Age100plus,Municipality]=
+	1 - (Average age 100plus[Age100plus,Municipality] - Start 100plus group[Municipality\
+		]) *Relative Change 100plus group[Age100plus,Municipality]
+	~	Dmnl
+	~		|
+
+House type:
+	Semi Detatched, Appartment, Corner, Terraced, Detatched
+	~	
+	~		|
+
+Housing Stock[Age0to9,Municipality]= INTEG (
+	New Construction[Municipality] - Ageing stock[Age0to9,Municipality] - Demolition[Municipality\
+		,Age0to9],
+		Initial Housing stock[Age0to9,Municipality]) ~~|
+Housing Stock[All but Youngest and Oldest,Municipality]= INTEG (
+	Ageing stock[Previous age group,Municipality]-Ageing stock[All but Youngest and Oldest\
+		,Municipality] - Demolition[Municipality,All but Youngest and Oldest
+	],
+		Initial Housing stock[All but Youngest and Oldest,Municipality]) ~~|
+Housing Stock[Age100plus,Municipality]= INTEG (
+	Ageing stock[Age90to99,Municipality] - Demolition[Municipality,Age100plus],
+		Initial Housing stock[Age100plus,Municipality])
+	~	House
+	~		|
+
+National Energy System Distribution[Energy System]=
+	SUM(Total Stock per System Municipality[Municipality!,Energy System])/SUM(Total Stock per System Municipality\
+		[Municipality!,Energy System!])
+	~	Dmnl
+	~		|
+
+Investment Development[Gas Systems]=
+	IF THEN ELSE
+	(
+	Technology Maturity Systems[Gas Systems] > 0.5,
+	(National Energy System Distribution[Gas Systems]*Investment Effect + Partial Investment Effect
+	 * SUM(National Energy System Distribution
+	[Gas Systems!])) * (1-Technology Maturity Systems[Gas Systems]),
+	
+	(National Energy System Distribution[Gas Systems]*Investment Effect + Partial Investment Effect
+	 * SUM(National Energy System Distribution
+	[Gas Systems!])) * Technology Maturity Systems[Gas Systems]) ~~|
+Investment Development[Heating Grids]=
+	IF THEN ELSE
+	(
+	Technology Maturity Systems[Heating Grids] > 0.5,
+	(
+	National Energy System Distribution[Heating Grids]*Investment Effect + Partial Investment Effect
+	 * SUM(National Energy System Distribution
+	[Heating Grids!])) * (1-Technology Maturity Systems[Heating Grids
+	]),
+	(National Energy System Distribution[Heating Grids]*Investment Effect + Partial Investment Effect
+	 * SUM(National Energy System Distribution
+	[Heating Grids!])) * Technology Maturity Systems[Heating Grids]
+	) ~~|
+Investment Development[Heat Pumps]=
+	IF THEN ELSE
+	(
+	Technology Maturity Systems[Heat Pumps] > 0.5,
+	(National Energy System Distribution[Heat Pumps]*Investment Effect + Partial Investment Effect
+	 * SUM(National Energy System Distribution
+	[
+	Heat Pumps!])) * (1-Technology Maturity Systems[Heat Pumps
+	]),
+	(National Energy System Distribution[Heat Pumps]*Investment Effect + Partial Investment Effect
+	 * SUM(National Energy System Distribution
+	[
+	Heat Pumps!])) * Technology Maturity Systems[Heat Pumps]
+	)
+	~	Dmnl/Year
+	~		|
+
+Heating Grids:
+	LT Heating Grid,MT Heating Grid,HT Heating Grid
+	~	
+	~		|
+
+Initial Maturity Technologies[Energy System]=
+	1,0.2,0.45,0.6,1,0.45,0.6,0.6
+	~	Dmnl
+	~	Derived from number of years in use / Years of use aardag
+	|
+
+Partial Investment Effect=
+	0.2
+	~	1/Year
+	~		|
+
+Technology Maturity Systems[Energy System]= INTEG (
+	Investment Development[Energy System],
+		Initial Maturity Technologies[Energy System])
+	~	Dmnl
+	~		|
+
+Gas Systems:
+	Natural Gas,Green Gas
+	~	
+	~		|
+
+Investment Effect=
+	0.1
+	~	1/Year
+	~		|
+
+Heat Pumps:
+	Air Heat Pump, Ground Heat Pump, Hybrid Heat Pump
+	~	
+	~		|
+
+Energy System:
+	Natural Gas, Green Gas, LT Heating Grid, MT Heating Grid, HT Heating Grid, Air Heat Pump\
+		, Ground Heat Pump, Hybrid Heat Pump
+	~	
+	~		|
+
+Migration[Age Groups Population,Municipality]=
+	IF THEN ELSE(Prognosis Population Development[Municipality] > 0,
+	Prognosis Population Development[Municipality]*Population[Age Groups Population,Municipality\
+		] * Ageing compensation factor[Municipality] ,
+	Prognosis Population Development[Municipality]*Population[Age Groups Population,Municipality\
+		] * (1-Ageing compensation factor[Municipality]) 
+	)
+	~	Person / Year
+	~	Prognosis Population Development[Municipality]*Population[Age Groups \
+		Population,Municipality] * Aging compensation factor[Municipality]
+	|
+
+Population[Age0to4,Municipality]= INTEG (
+	Births[Municipality]-Ageing population[Age0to4,Municipality]-Deaths[Age0to4,Municipality\
+		]+Migration[Age0to4,Municipality],
+		Initial population[Municipality,Age0to4]) ~~|
+Population[AllButYoungestAndOldest,Municipality]= INTEG (
+	Ageing population[PreviousAgeGroups,Municipality]-Ageing population[AllButYoungestAndOldest\
+		,Municipality]-Deaths[AllButYoungestAndOldest,
+	Municipality]+Migration[AllButYoungestAndOldest,Municipality
+	],
+		Initial population[Municipality,AllButYoungestAndOldest]) ~~|
+Population[Age80plus,Municipality]= INTEG (
+	Ageing population[Age75to79,Municipality]-Deaths[Age80plus,Municipality]+Migration
+	[Age80plus,Municipality],
+		Initial population[Municipality,Age80plus])
+	~	Person
+	~		|
+
+Housing Stock National=
+	SUM(Total Stock Municipality[Municipality!])
+	~	House
+	~		|
+
+Demolition Delay=
+	3
+	~	Year
+	~		|
+
+Prognosis Population Development[Municipality]:INTERPOLATE::=
+	GET DIRECT DATA( 'Input data\Population\Total prognosis migration.csv' , 'sheet1' , \
+		'A' , 'B2' )
+	~	Person/Person/Year
+	~		|
+
+Finished Construction National=
+	SUM(New Construction[Municipality!])
+	~	House/Year
+	~		|
+
+Total Population National=
+	SUM(Total Population Municipality[Municipality!])
+	~	Person
+	~		|
+
+In construction[Municipality]= INTEG (
+	Planning[Municipality] - New Construction[Municipality],
+		initial in construction[Municipality])
+	~	House
+	~		|
+
+Construction time=
+	0.5
+	~	Year
+	~		|
+
+Planning Delay=
+	3
+	~	Year
+	~		|
+
+Housing Demand[Municipality]=
+	(Total Population Municipality[Municipality]+Houseseeking population[Municipality])/\
+		Average Size Households[Municipality]
+	~	House
+	~		|
+
+Housing Balance Municipality[Municipality]=
+	Total Stock Municipality[Municipality]-Housing Demand[Municipality]
+	~	House
+	~		|
+
+Initial population[Municipality,Age Groups Population]=
+	GET DIRECT CONSTANTS('Input data\Population\Population_municipalities_2019.csv', 'Sheet1'\
+		 , 'B2' )
+	~	Person
+	~	GET XLS CONSTANTS('Population_municipalities_2018.xlsx', 'Sheet1' , 'B2' )
+	|
+
+a=
+	0.3
+	~	1/Year
+	~		|
+
+Age Groups Population:
+	Age0to4, Age5to9, Age10to14, Age15to19, Age20to24, Age25to29, Age30to34, Age35to39, \
+		Age40to44, Age45to49, Age50to54, Age55to59, Age60to64, Age65to69,Age70to74, Age75to79\
+		, Age80plus
+	~	
+	~		|
+
+Average time per age group[Municipality]=
+	5
+	~	Year
+	~		|
+
+Ageing population[Age Groups Population,Municipality]=
+	Population[Age Groups Population,Municipality]/Average time per age group[Municipality\
+		]
+	~	Person/Year
+	~		|
+
+c=
+	0.02
+	~	1/Year
+	~	0.05
+	|
+
+AllButYoungestAndOldest:
+	Age5to9,Age10to14,Age15to19,Age20to24,Age25to29,Age30to34,Age35to39,Age40to44,Age45to49\
+		,Age50to54,Age55to59,Age60to64,Age65to69,Age70to74,Age75to79
+	~	
+	~		|
+
+Average age per age group[Age Groups Population]=
+	2.5, 7.5, 12.5, 17.5, 22.5, 27.5, 32.5, 37.5, 42.5, 47.5, 52.5 , 57.5, 62.5 , 67.5, \
+		72.5, 77.5, 82.5
+	~	Year
+	~		|
+
+FertileAge:
+	Age15to19,Age20to24,Age25to29,Age30to34,Age35to39,Age40to44
+	~	
+	~		|
+
+Average Fertility per Woman[Municipality]= WITH LOOKUP (
+	Time,
+		([(2019,0)-(2060,10)],(2019,1.60906),(2020,1.61313),(2025,1.70517),(2030,1.75158),(\
+		2035,1.75058),(2040,1.75007),(2060,1.75) ))
+	~	Person/Person
+	~		|
+
+Average Mortality per Age=
+	0.0087
+	~	Person/Person/Year
+	~	https://opendata.cbs.nl/statline/#/CBS/nl/dataset/03747/table?ts=1583483767\
+		921
+	|
+
+Average Size Households[Municipality]=
+	GET DIRECT CONSTANTS( 'Input data\Population\households_municipalities_2019.csv' , 'sheet1'\
+		 , 'B2' )
+	~	Person/House
+	~	2.17
+	|
+
+PreviousAgeGroups:
+	Age0to4,Age5to9,Age10to14,Age15to19,Age20to24,Age25to29,Age30to34,Age35to39,Age40to44\
+		,Age45to49,Age50to54,Age55to59,Age60to64,Age65to69,Age70to74 -> AllButYoungestAndOldest
+	~	
+	~		|
+
+Births[Municipality]=
+	Average Fertility per Woman[Municipality] * Relative share women in fertile age[Municipality\
+		] * SUM(Population[FertileAge!,Municipality])/Years in fertile age[Municipality]
+	~	Person/Year
+	~		|
+
+Relative share women in fertile age[Municipality]=
+	0.5
+	~	Dmnl
+	~		|
+
+Total Population Municipality[Municipality]=
+	SUM(Population[Age Groups Population!,Municipality])
+	~	Person
+	~		|
+
+Life expectancy= WITH LOOKUP (
+	Time,
+		([(2019,80)-(2060,90)],(2019,82.1),(2020,82.26),(2030,83.85),(2040,85.43),(2050,86.87\
+		),(2060,88.16) ))
+	~	Dmnl
+	~	https://opendata.cbs.nl/statline/#/CBS/nl/dataset/84645NED/table?ts=1583482\
+		552024
+	|
+
+Years in fertile age[Municipality]=
+	30
+	~	Year
+	~		|
+
+Initial average age 100plus[Municipality]=
+	GET DIRECT CONSTANTS('Input data\Average age 100plus.csv', '' , 'b2*' )
+	~	Year
+	~	313, 118, 127
+	|
+
+Municipality:
+	GET DIRECT SUBSCRIPT('Input data\Initial Housing Stock.csv','sheet1' , 'A2' , 'A356'\
+		 , '' )
+	~	
+	~	"'s-Gravenhage", "'s-Hertogenbosch", Aa en Hunze
+	|
+
+Years per group[Municipality]=
+	10
+	~	Year
+	~		|
+
+Start 100plus group[Municipality]=
+	100
+	~	Year
+	~		|
+
+All but Youngest and Oldest:
+	Age10to19,Age20to29,Age30to39,Age40to49,Age50to59,Age60to69,Age70to79,Age80to89,Age90to99
+	~	
+	~		|
+
+Housing Age:
+	Age0to9, Age10to19, Age20to29, Age30to39, Age40to49, Age50to59, Age60to69, Age70to79\
+		, Age80to89, Age90to99, Age100plus
+	~	
+	~		|
+
+Previous age group:
+	Age0to9,Age10to19,Age20to29,Age30to39,Age40to49,Age50to59,Age60to69,Age70to79,Age80to89\
+		 ->All but Youngest and Oldest
+	~	
+	~		|
+
+********************************************************
+	.Control
+********************************************************~
+		Simulation Control Parameters
+	|
+
+FINAL TIME  = 2060
+	~	Year
+	~	The final time for the simulation.
+	|
+
+INITIAL TIME  = 2020
+	~	Year
+	~	The initial time for the simulation.
+	|
+
+SAVEPER  = 1
+	~	Year [0,?]
+	~	The frequency with which output is stored.
+	|
+
+TIME STEP  = 0.125
+	~	Year [0,?]
+	~	The time step for the simulation.
+	|
+
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
+*View 1
+$192-192-192,0,Times New Roman|12||0-0-0|0-0-0|0-0-255|-1--1--1|-1--1--1|96,96,60,0
+10,1,Housing Stock,1065,-126,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,2,4,1,4,0,0,22,0,0,0,-1--1--1,,3|(1071,-191)|(1071,-191)|(1071,-169)|
+1,3,4,1,100,0,0,22,0,0,0,-1--1--1,,3|(1141,-124)|(1119,-124)|(1112,-124)|
+11,4,3258,1141,-191,6,8,34,3,0,0,3,0,0,0,0,0,0,0,0,0
+10,5,Ageing stock,1141,-221,30,22,40,131,0,0,-1,0,0,0,0,0,0,0,0,0
+10,6,Years per group,1285,-254,37,21,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+1,7,6,5,0,0,0,0,0,128,0,-1--1--1,,1|(1216,-239)|
+10,8,Average age 100plus,1868,-144,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+12,9,48,1598,-150,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,10,12,8,4,0,0,22,0,0,0,-1--1--1,,1|(1772,-149)|
+1,11,12,9,100,0,0,22,0,0,0,-1--1--1,,1|(1656,-149)|
+11,12,48,1711,-149,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,13,Change average age 100plus,1711,-122,52,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,14,Initial average age 100plus,1843,-59,57,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,15,14,8,0,0,0,0,0,64,1,-1--1--1,,1|(1852,-95)|
+10,16,Relative Change 100plus group,1301,-169,52,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,17,1,16,1,0,0,0,0,128,0,-1--1--1,,1|(1170,-146)|
+1,18,5,16,0,0,0,0,0,128,0,-1--1--1,,1|(1203,-202)|
+1,19,16,13,1,0,0,0,0,128,0,-1--1--1,,1|(1658,-158)|
+1,20,21,1,4,0,0,22,0,0,0,-1--1--1,,1|(993,-127)|
+11,21,6206,955,-127,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,22,New Construction,955,-108,58,11,40,3,0,18,-1,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+1,23,1,4,0,0,0,0,0,128,1,-1--1--1,,1|(1106,-163)|
+1,24,8,13,0,0,0,0,0,64,0,-1--1--1,,1|(1802,-136)|
+10,25,Start 100plus group,1887,-247,57,20,8,131,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+1,26,25,12,0,0,0,0,0,64,0,-1--1--1,,1|(1790,-193)|
+10,27,Total Stock Municipality,937,78,40,29,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,28,1,27,0,0,0,0,0,128,0,-1--1--1,,1|(1007,-35)|
+10,29,Average Heating Energy use,2526,-144,44,34,3,131,0,18,0,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+1,30,32,29,4,0,0,22,2,0,0,-1--1--1,|12||0-0-0,3|(2635,-50)|(2545,-50)|(2545,-80)|
+1,31,32,29,100,0,0,22,0,0,0,-1--1--1,,3|(2635,-133)|(2572,-133)|(2571,-133)|
+11,32,3236,2635,-62,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,33,Ageing Energy use,2635,-27,42,27,40,131,0,0,-1,0,0,0,0,0,0,0,0,0
+12,34,48,2531,195,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,35,37,29,4,0,0,22,0,0,0,-1--1--1,,1|(2526,-15)|
+1,36,37,34,100,0,0,22,0,0,0,-1--1--1,,1|(2526,141)|
+11,37,48,2526,88,6,8,34,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,38,Energy use New Construction,2580,88,48,29,40,131,0,0,-1,0,0,0,0,0,0,0,0,0
+12,39,48,2525,-341,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,40,42,39,4,0,0,22,0,0,0,-1--1--1,,1|(2523,-313)|
+1,41,42,29,100,0,0,22,0,0,0,-1--1--1,,1|(2523,-230)|
+11,42,48,2523,-287,8,6,33,131,0,0,2,0,0,0,0,0,0,0,0,0
+10,43,Compensation growing 100plus group,2461,-287,54,24,40,131,0,0,-1,0,0,0,0,0,0,0,0,0
+1,44,8,43,1,0,0,0,0,128,0,-1--1--1,,1|(2129,-255)|
+1,45,29,32,1,0,0,0,0,128,1,-1--1--1,,1|(2588,-106)|
+10,46,Years per group,2762,27,37,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,47,33,42,1,0,0,0,0,64,0,-1--1--1,,1|(2635,-181)|
+1,48,22,5,1,0,0,0,0,64,0,-1--1--1,,1|(995,-156)|
+1,49,38,33,1,0,0,0,0,64,0,-1--1--1,,1|(2623,5)|
+1,50,46,33,0,0,0,0,0,128,0,-1--1--1,,1|(2707,3)|
+1,51,29,38,1,0,0,0,0,64,0,-1--1--1,,1|(2534,-33)|
+10,52,Population,-365,-150,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,53,55,52,4,0,0,22,0,0,0,-1--1--1,,3|(-337,-210)|(-337,-209)|(-337,-190)|
+1,54,55,52,100,0,0,22,0,0,0,-1--1--1,,3|(-262,-150)|(-298,-150)|(-311,-150)|
+11,55,1652,-262,-210,6,8,34,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,56,Ageing population,-221,-210,35,20,40,131,0,0,-1,0,0,0,0,0,0,0,0,0
+12,57,48,-537,-150,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,58,60,52,4,0,0,22,0,0,0,-1--1--1,,1|(-432,-150)|
+1,59,60,57,100,0,0,22,0,0,0,-1--1--1,,1|(-499,-150)|
+11,60,48,-466,-150,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,61,Births,-466,-131,20,11,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+12,62,48,-367,-406,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,63,65,62,4,0,0,22,0,0,0,-1--1--1,,1|(-365,-339)|
+1,64,65,52,100,0,0,22,0,0,0,-1--1--1,,1|(-365,-219)|
+11,65,48,-365,-273,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,66,Deaths,-334,-273,23,11,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,67,Average Fertility per Woman,-641,-64,53,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+10,68,Relative share women in fertile age,-660,-127,70,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,69,67,61,0,0,0,0,0,128,0,-1--1--1,,1|(-545,-101)|
+1,70,68,61,0,0,0,0,0,128,0,-1--1--1,,1|(-544,-130)|
+1,71,52,61,0,0,0,0,0,128,0,-1--1--1,,1|(-418,-141)|
+10,72,Years in fertile age,-600,-197,58,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,73,72,60,0,0,0,0,0,128,0,-1--1--1,,1|(-526,-172)|
+10,74,Average time per age group,-222,-274,55,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+1,75,52,55,0,0,0,0,0,128,0,-1--1--1,,1|(-305,-185)|
+1,76,52,66,0,0,0,0,0,128,0,-1--1--1,,1|(-349,-210)|
+1,77,74,56,0,0,0,0,0,128,0,-1--1--1,,1|(-221,-250)|
+10,78,Mortality rate,-444,-307,43,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,79,Life expectancy,-494,-357,50,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+10,80,Time,-580,-385,26,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,81,80,79,0,0,0,0,0,64,0,-1--1--1,,1|(-547,-375)|
+1,82,79,78,0,0,0,0,0,128,0,-1--1--1,,1|(-473,-337)|
+10,83,a,-420,-353,6,11,8,3,0,3,0,0,0,0,0-128-0,0-0-0,|12||0-128-0,0,0,0,0,0,0
+10,84,c,-391,-337,6,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+10,85,Average Mortality per Age,-588,-313,58,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,86,85,78,0,0,0,0,0,128,0,-1--1--1,,1|(-515,-311)|
+1,87,83,78,0,0,0,0,0,128,0,-1--1--1,,1|(-428,-337)|
+1,88,84,78,0,0,0,0,0,128,0,-1--1--1,,1|(-404,-330)|
+10,89,Average age per age group,-248,-324,53,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+1,90,89,78,0,0,0,0,0,64,0,-1--1--1,,1|(-344,-317)|
+1,91,78,65,0,0,0,0,0,128,0,-1--1--1,,1|(-402,-290)|
+10,92,Total Population Municipality,-219,-57,53,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,93,52,92,0,0,0,0,0,128,0,-1--1--1,,1|(-296,-107)|
+10,94,Average Size Households,365,-247,43,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+10,95,Housing Demand,451,-149,54,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,96,92,95,0,0,0,0,0,128,0,-1--1--1,,1|(108,-103)|
+1,97,94,95,0,0,0,0,0,128,0,-1--1--1,,1|(406,-200)|
+10,98,Initial population,-457,-202,58,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,99,98,52,0,0,0,0,0,128,1,-1--1--1,,1|(-425,-184)|
+10,100,Housing Balance Municipality,727,-12,40,28,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,101,95,100,0,0,0,0,0,128,0,-1--1--1,,1|(573,-89)|
+1,102,27,100,0,0,0,0,0,128,0,-1--1--1,,1|(838,35)|
+10,103,Housing Balance National,741,91,37,34,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,104,100,103,0,0,0,0,0,128,0,-1--1--1,,1|(731,29)|
+10,105,Houseseeking population,377,-69,45,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,106,105,95,0,0,0,0,0,128,0,-1--1--1,,1|(412,-108)|
+1,107,92,105,1,0,0,0,0,128,0,-1--1--1,,1|(-76,-41)|
+10,108,In construction,818,-125,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+12,109,48,653,-122,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,110,112,108,4,0,0,22,0,0,0,-1--1--1,,1|(748,-124)|
+1,111,112,109,100,0,0,22,0,0,0,-1--1--1,,1|(685,-124)|
+11,112,48,713,-124,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,113,Planning,713,-105,27,11,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,114,21,108,100,0,0,22,0,0,0,-1--1--1,,1|(903,-127)|
+1,115,100,113,0,0,0,0,0,128,0,-1--1--1,,1|(719,-61)|
+10,116,Planning Delay,611,-207,47,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,117,116,112,0,0,0,0,0,128,0,-1--1--1,,1|(660,-167)|
+1,118,113,22,1,0,0,0,0,128,0,-1--1--1,,1|(861,-93)|
+10,119,Construction time,800,-271,55,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,120,119,22,0,0,0,0,0,128,0,-1--1--1,,1|(872,-195)|
+10,121,initial in construction,748,-192,39,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,122,121,108,0,0,0,0,0,128,1,-1--1--1,,1|(776,-164)|
+1,123,108,22,0,0,0,0,0,64,0,-1--1--1,,1|(870,-120)|
+1,124,116,121,0,0,0,0,0,64,1,-1--1--1,,1|(676,-201)|
+10,125,Housing Balance Municipality,627,-284,51,32,8,130,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,126,125,121,0,0,0,0,0,128,1,-1--1--1,,1|(690,-236)|
+10,127,Finished Construction National,870,-27,44,26,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,128,22,127,0,0,0,0,0,128,0,-1--1--1,,1|(925,-80)|
+10,129,Housing Stock National,743,493,39,27,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,130,27,129,0,0,0,0,0,128,0,-1--1--1,,1|(842,280)|
+10,131,Total Population National,-58,-137,53,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,132,92,131,0,0,0,0,0,128,0,-1--1--1,,1|(-144,-94)|
+12,133,48,-384,8,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,134,136,52,4,0,0,22,0,0,0,-1--1--1,,1|(-384,-101)|
+1,135,136,133,100,0,0,22,0,0,0,-1--1--1,,1|(-384,-30)|
+11,136,48,-384,-65,8,6,33,3,0,0,2,0,0,0,0,0,0,0,0,0
+10,137,Migration,-423,-65,31,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,138,Prognosis Population Development,-445,74,59,24,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,139,138,137,0,0,0,0,0,128,0,-1--1--1,,1|(-435,8)|
+1,140,52,137,0,0,0,0,0,128,0,-1--1--1,,1|(-390,-113)|
+12,141,48,1028,-294,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,142,144,141,4,0,0,22,0,0,0,-1--1--1,,1|(1026,-267)|
+1,143,144,1,100,0,0,22,0,0,0,-1--1--1,,1|(1026,-191)|
+11,144,48,1026,-242,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,145,Demolition,1069,-242,35,11,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,146,Demolition Delay,1055,-381,54,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+10,147,Ageing compensation factor,-525,-17,65,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,148,147,137,0,0,0,0,0,128,0,-1--1--1,,1|(-475,-41)|
+1,149,66,147,0,0,0,0,0,128,0,-1--1--1,,1|(-421,-155)|
+1,150,61,147,0,0,0,0,0,128,0,-1--1--1,,1|(-489,-85)|
+1,151,119,121,0,0,0,0,0,64,1,-1--1--1,,1|(780,-242)|
+10,152,Technology Maturity Systems,-705,1044,53,34,3,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,153,154,152,4,0,0,22,0,0,0,-1--1--1,,1|(-610,1042)|
+11,154,3632,-563,1042,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,155,Investment Development,-563,1069,43,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,156,Initial Maturity Technologies,-811,1115,46,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+10,157,Investment Effect,-472,1151,54,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,158,157,155,0,0,0,0,0,64,0,-1--1--1,,1|(-507,1118)|
+1,159,152,155,0,0,0,0,0,64,0,-1--1--1,,1|(-635,1055)|
+1,160,156,152,0,0,0,0,0,128,1,-1--1--1,,1|(-774,1090)|
+10,161,Partial Investment Effect,-632,1149,57,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,162,161,155,0,0,0,0,0,128,0,-1--1--1,,1|(-602,1114)|
+12,163,48,-485,1048,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,164,154,163,100,0,0,22,0,0,0,-1--1--1,,1|(-526,1042)|
+10,165,National Energy System Distribution,-278,1070,66,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,166,165,155,0,0,0,0,0,128,0,-1--1--1,,1|(-425,1069)|
+10,167,Total Stock per System Municipality,30,1065,54,29,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,168,167,165,0,0,0,0,0,128,0,-1--1--1,,1|(-111,1066)|
+10,169,Initial Housing stock,1182,-51,56,29,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+10,170,Estimated Initial Energy use in M3,2378,83,58,32,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,171,169,1,0,0,0,0,0,128,1,-1--1--1,,1|(1122,-90)|
+10,172,Improvement factor,2748,116,43,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,173,172,38,0,0,0,0,0,64,0,-1--1--1,,1|(2673,103)|
+10,174,Demolition percentage,1153,-311,35,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,175,27,167,1,0,0,0,0,64,0,-1--1--1,,1|(342,443)|
+10,176,Total Stock Municipality,1191,-382,44,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,177,176,174,0,0,0,0,0,128,0,-1--1--1,,1|(1175,-353)|
+1,178,174,145,0,0,0,0,0,128,0,-1--1--1,,1|(1111,-277)|
+1,179,1,145,0,0,0,0,0,128,0,-1--1--1,,1|(1066,-182)|
+1,180,146,145,0,0,0,0,0,128,0,-1--1--1,,1|(1060,-319)|
+10,181,Difference 90 100,2453,-219,38,23,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,182,29,181,0,0,0,0,0,128,0,-1--1--1,,1|(2488,-183)|
+1,183,181,43,0,0,0,0,0,128,0,-1--1--1,,1|(2455,-246)|
+1,184,25,43,1,0,0,0,0,64,0,-1--1--1,,1|(2246,-299)|
+10,185,Housing Balance Municipality,1292,-332,58,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,186,185,174,0,0,0,0,0,128,0,-1--1--1,,1|(1217,-322)|
+1,187,46,38,0,0,0,0,0,128,0,-1--1--1,,1|(2683,52)|
+10,188,Average Electricity use Applicances,644,1595,52,28,3,131,0,0,0,0,0,0,0,0,0,0,0,0
+12,189,48,460,1600,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,190,192,188,4,0,0,22,0,0,0,-1--1--1,,1|(551,1602)|
+1,191,192,189,100,0,0,22,0,0,0,-1--1--1,,1|(484,1602)|
+11,192,48,505,1602,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,193,Change applicances use,505,1629,50,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,194,Expected change applicances use,365,1704,55,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,195,194,193,0,0,0,0,0,128,0,-1--1--1,,1|(428,1669)|
+1,196,188,193,0,0,0,0,0,128,0,-1--1--1,,1|(580,1609)|
+10,197,Relocation mobility factor,410,18,46,19,8,131,0,18,0,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+1,198,197,105,0,0,0,0,0,128,0,-1--1--1,,1|(396,-19)|
+10,199,Housing Demand Presure factor,244,21,55,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,200,199,105,0,0,0,0,0,128,0,-1--1--1,,1|(304,-21)|
+10,201,Economy Business cycle,-62,446,46,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,202,Pi,66,474,8,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+10,203,Time,12,519,26,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,204,203,201,0,0,0,0,0,128,0,-1--1--1,,1|(-15,491)|
+1,205,202,201,0,0,0,0,0,128,0,-1--1--1,,1|(27,466)|
+10,206,Starting point mid,-75,380,55,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,207,206,201,0,0,0,0,0,128,0,-1--1--1,,1|(-70,402)|
+10,208,Expected period,-208,397,52,11,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+10,209,Expected Amplitude,-204,480,33,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,210,201,197,0,0,0,0,0,128,0,-1--1--1,,1|(168,236)|
+10,211,Delay Business Cycle effect,418,122,40,26,8,131,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,212,211,197,0,0,0,0,0,64,0,-1--1--1,,1|(414,73)|
+10,213,Business cycle effect factor,547,85,46,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,214,213,197,0,0,0,0,0,128,0,-1--1--1,,1|(484,54)|
+10,215,Base growth,-198,541,40,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,216,215,201,0,0,0,0,0,128,0,-1--1--1,,1|(-141,501)|
+10,217,GDP,4,605,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,218,GDP initial,18,692,35,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,219,218,217,0,0,0,0,0,128,1,-1--1--1,,1|(13,659)|
+12,220,48,-159,592,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,221,223,217,4,0,0,22,0,0,0,-1--1--1,,1|(-61,592)|
+1,222,223,220,100,0,0,22,0,0,0,-1--1--1,,1|(-124,592)|
+11,223,48,-93,592,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,224,Growth,-93,611,25,11,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,225,201,223,0,0,0,0,0,128,0,-1--1--1,,1|(-77,518)|
+1,226,217,224,0,0,0,0,0,64,0,-1--1--1,,1|(-45,607)|
+10,227,Initial electricity use,639,1692,56,19,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,228,227,188,0,0,0,0,0,128,1,-1--1--1,,1|(640,1654)|
+10,229,Initial Energy use,2450,17,53,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,230,170,229,0,0,0,0,0,128,1,-1--1--1,,1|(2419,44)|
+1,231,229,29,0,0,0,0,0,128,1,-1--1--1,,1|(2479,-46)|
+10,232,GJ per PJ,662,1185,32,11,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+10,233,Net Caloric value,2458,150,50,24,8,131,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+1,234,233,229,0,0,0,0,0,64,1,-1--1--1,,1|(2453,83)|
+10,235,Energy use per group,621,947,46,28,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,236,Municipal Energy use,626,817,35,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,237,National Energy use,695,637,52,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,238,235,236,1,0,0,0,0,128,0,-1--1--1,,1|(621,874)|
+1,239,236,237,0,0,0,0,0,128,0,-1--1--1,,1|(657,733)|
+1,240,208,201,0,0,0,0,0,128,0,-1--1--1,,1|(-148,416)|
+1,241,209,201,0,0,0,0,0,128,0,-1--1--1,,1|(-146,466)|
+10,242,Total Gas use per type,1140,878,57,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,243,Total Electricity use Heating grids,454,1237,73,22,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,244,235,242,0,0,0,0,0,128,0,-1--1--1,,1|(868,913)|
+1,245,235,243,0,0,0,0,0,128,0,-1--1--1,,1|(539,1088)|
+10,246,kWh per GJ,648,1276,40,11,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+1,247,246,243,0,0,0,0,0,64,0,-1--1--1,,1|(574,1260)|
+1,248,232,243,0,0,0,0,0,64,0,-1--1--1,,1|(585,1203)|
+10,249,Total Electricity use Heat pumps,797,1233,62,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,250,Efficiency Heating grids,419,1113,57,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,251,235,249,0,0,0,0,0,128,0,-1--1--1,,1|(707,1088)|
+1,252,246,249,0,0,0,0,0,128,0,-1--1--1,,1|(703,1259)|
+1,253,232,249,0,0,0,0,0,128,0,-1--1--1,,1|(710,1202)|
+1,254,250,243,0,0,0,0,0,128,0,-1--1--1,,1|(433,1166)|
+10,255,Total Electricity use,647,1398,50,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,256,249,255,1,0,0,0,0,128,0,-1--1--1,,1|(715,1298)|
+1,257,243,255,0,0,0,0,0,128,0,-1--1--1,,1|(546,1314)|
+10,258,National Electricity use,1415,1382,52,28,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,259,255,258,0,0,0,0,0,128,0,-1--1--1,,1|(1023,1390)|
+10,260,National Gas use,1335,881,48,23,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,261,242,260,0,0,0,0,0,128,0,-1--1--1,,1|(1235,878)|
+10,262,Total Appliances use,661,1489,54,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,263,188,262,0,0,0,0,0,128,0,-1--1--1,,1|(651,1544)|
+1,264,262,255,0,0,0,0,0,128,0,-1--1--1,,1|(655,1450)|
+10,265,Housing Stock,810,1525,56,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,266,265,262,0,0,0,0,0,128,0,-1--1--1,,1|(746,1509)|
+10,267,Net Caloric value,1081,948,59,26,8,130,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,268,267,242,0,0,0,0,0,128,0,-1--1--1,,1|(1107,914)|
+10,269,GJ per PJ,770,965,41,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,270,269,235,0,0,0,0,0,128,0,-1--1--1,,1|(704,957)|
+10,271,GJ per PJ,1190,943,41,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,272,271,242,0,0,0,0,0,128,0,-1--1--1,,1|(1172,919)|
+10,273,Cumulative CO2 emmissions,1213,1577,55,27,3,131,0,0,0,0,0,0,0,0,0,0,0,0
+12,274,48,1023,1579,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,275,277,273,4,0,0,22,0,0,0,-1--1--1,,1|(1116,1580)|
+1,276,277,274,100,0,0,22,0,0,0,-1--1--1,,1|(1048,1580)|
+11,277,48,1069,1580,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,278,Yearly CO2 emmissions Gas,1069,1626,64,38,40,131,0,0,-1,0,0,0,0,0,0,0,0,0
+10,279,Percentage Renewable Electricity,1951,1631,48,32,3,131,0,0,0,0,0,0,0,0,0,0,0,0
+12,280,48,2228,1621,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,281,283,279,4,0,0,22,0,0,0,-1--1--1,,1|(2062,1622)|
+1,282,283,280,100,0,0,22,0,0,0,-1--1--1,,1|(2178,1622)|
+11,283,48,2132,1622,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,284,Increase Renewable Electricity,2132,1649,69,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,285,CO2 emmission per M3,971,1694,52,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+1,286,285,278,0,0,0,0,0,128,0,-1--1--1,,1|(1000,1673)|
+12,287,48,1491,1581,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,288,290,273,4,0,0,22,0,0,0,-1--1--1,,1|(1324,1583)|
+1,289,290,287,100,0,0,22,0,0,0,-1--1--1,,1|(1437,1583)|
+11,290,48,1387,1583,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,291,Yearly CO2 emmissions Electricity,1387,1610,79,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,292,279,291,1,0,0,0,0,128,0,-1--1--1,,1|(1691,1621)|
+1,293,258,290,0,0,0,0,0,128,0,-1--1--1,,1|(1400,1486)|
+1,294,260,277,1,0,0,0,0,128,0,-1--1--1,,1|(1240,1214)|
+10,295,CO2 Emmission per kWh,1313,1696,54,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||160-160-160,0,0,0,0,0,0
+1,296,295,291,0,0,0,0,0,128,0,-1--1--1,,1|(1344,1658)|
+10,297,Initial percentage Renewable Electricity,1925,1719,64,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,298,297,279,0,0,0,0,0,64,1,-1--1--1,,1|(1933,1688)|
+1,299,279,284,0,0,0,0,0,128,0,-1--1--1,,1|(2024,1637)|
+12,300,48,2221,-143,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,301,302,300,4,0,0,22,0,0,0,-1--1--1,,1|(2290,-143)|
+11,302,48,2356,-143,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,303,Insulation improvement,2356,-116,42,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+12,304,0,-624,351,143,41,8,135,0,24,-1,0,0,0,-1--1--1,0-0-0,|48|U|0-0-0,0,0,0,0,0,0
+Legend:
+12,305,0,-603,418,130,27,8,7,0,10,-1,0,0,0,-1--1--1,0-0-0,|36||255-0-0,0,0,0,0,0,0
+- ABM Input
+12,306,0,-576,523,190,35,8,135,0,10,-1,0,0,0,-1--1--1,0-0-0,|36||0-0-255,0,0,0,0,0,0
+- Scenario Input
+12,307,0,-602,574,130,27,8,7,0,10,-1,0,0,0,-1--1--1,0-0-0,|36||0-128-0,0,0,0,0,0,0
+- Initial Input
+12,308,0,-560,681,194,25,8,135,0,10,-1,0,0,0,-1--1--1,0-0-0,|36||160-160-160,0,0,0,0,0,0
+- Fixed Constants
+12,309,0,-502,737,239,26,8,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|36||0-0-0,0,0,0,0,0,0
+- Endogenous Variables
+12,310,0,-586,627,159,26,8,135,0,10,-1,0,0,0,-1--1--1,0-0-0,|36||255-128-0,0,0,0,0,0,0
+- Policy Levers
+10,311,Investment Renewable Electricity,2377,1517,72,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,312,302,29,100,0,0,22,0,0,0,-1--1--1,,1|(2422,-143)|
+10,313,Insulation potential,2344,-200,58,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,314,29,313,0,0,0,0,0,128,0,-1--1--1,,1|(2437,-171)|
+1,315,33,313,0,0,0,0,0,128,0,-1--1--1,,1|(2484,-117)|
+1,316,313,303,0,0,0,0,0,128,0,-1--1--1,,1|(2347,-169)|
+1,317,43,313,1,0,0,0,0,128,0,-1--1--1,,1|(2379,-255)|
+1,318,303,33,0,0,0,0,0,128,0,-1--1--1,,1|(2488,-75)|
+10,319,Renewable Electricity cost,2913,1424,48,36,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+10,320,National Electricity Demand,1793,1355,37,30,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,321,Share Electricity Demand Housing sector,1666,1295,40,39,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,322,258,320,0,0,0,0,0,128,0,-1--1--1,,1|(1604,1368)|
+1,323,321,320,0,0,0,0,0,128,0,-1--1--1,,1|(1724,1321)|
+10,324,National Electricity price with Taxes,2534,1493,56,38,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,325,National Electricity production,1943,1500,50,27,3,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,326,Electricity Trade,1939,1249,53,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,327,Average Electricity Price,2250,1357,49,19,8,131,0,18,0,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+1,328,319,324,0,0,0,0,0,128,0,-1--1--1,,1|(2734,1455)|
+1,329,279,324,1,0,0,0,0,128,0,-1--1--1,,1|(2274,1699)|
+1,330,320,326,0,0,0,0,0,128,0,-1--1--1,,1|(1870,1298)|
+1,331,325,326,1,0,0,0,0,128,0,-1--1--1,,1|(2010,1370)|
+1,332,324,327,0,0,0,0,0,128,0,-1--1--1,,1|(2390,1424)|
+10,333,Grey Electricity cost,3016,1485,52,38,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+10,334,CO2 Tax,2631,1370,32,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-128-0,0,0,0,0,0,0
+10,335,CO2 Emmission per kWh,2372,1356,58,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+10,336,Time,2581,1243,26,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+10,337,Relative cost Renewable,2571,1620,49,31,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,338,337,311,0,0,0,0,0,128,0,-1--1--1,,1|(2473,1568)|
+10,339,Base Investments Renewable,2326,1451,56,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,340,339,311,0,0,0,0,0,64,0,-1--1--1,,1|(2346,1478)|
+1,341,324,337,0,0,0,0,0,128,0,-1--1--1,,1|(2551,1553)|
+10,342,National Gas production,2102,588,51,25,3,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,343,Gas import price,2336,410,53,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,344,National Gas demand,1828,685,42,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,345,260,344,0,0,0,0,0,128,0,-1--1--1,,1|(1577,784)|
+10,346,Share Gas demand Housing sector,1679,647,61,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,347,346,344,0,0,0,0,0,128,0,-1--1--1,,1|(1756,666)|
+10,348,Gas price,2236,753,31,11,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,349,National Gas Price With Taxes,2429,845,68,34,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,350,349,348,0,0,0,0,0,128,0,-1--1--1,,1|(2316,791)|
+10,351,Share Green gas,1948,835,52,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,352,344,351,0,0,0,0,0,128,0,-1--1--1,,1|(1886,758)|
+10,353,Cost Gas production,2663,641,77,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,354,Electricity import price with Taxes,2374,1242,54,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,355,354,327,0,0,0,0,0,128,0,-1--1--1,,1|(2317,1294)|
+10,356,Electricity Import CO2 Tax Switch,2376,1176,55,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,357,356,354,0,0,0,0,0,128,0,-1--1--1,,1|(2375,1202)|
+1,358,334,324,0,0,0,0,0,128,0,-1--1--1,,1|(2597,1412)|
+1,359,335,324,0,0,0,0,0,128,0,-1--1--1,,1|(2436,1410)|
+1,360,333,324,0,0,0,0,0,128,0,-1--1--1,,1|(2783,1488)|
+12,361,0,-563,473,176,32,8,135,0,26,-1,0,0,0,-1--1--1,0-0-0,|36|U|255-0-0,0,0,0,0,0,0
+- Output to ABM
+1,362,353,343,1,0,0,0,0,128,0,-1--1--1,,1|(2525,483)|
+10,363,Foreign Gas Demand,2089,397,31,24,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,364,Foreign Gas Supply,2221,327,40,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,365,364,343,0,0,0,0,0,128,0,-1--1--1,,1|(2277,368)|
+10,366,Supply response Delay Gas,2384,316,53,19,8,3,0,3,-1,0,0,0,0-0-255,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,367,366,364,0,0,0,0,0,64,0,-1--1--1,,1|(2302,321)|
+10,368,Administration Period,2201,-186,46,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,369,368,313,0,0,0,0,0,128,0,-1--1--1,,1|(2259,-192)|
+10,370,Share Domestic gas production,2084,749,64,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,371,344,370,0,0,0,0,0,128,0,-1--1--1,,1|(1938,712)|
+1,372,370,348,0,0,0,0,0,128,0,-1--1--1,,1|(2169,750)|
+1,373,342,370,0,0,0,0,0,128,0,-1--1--1,,1|(2093,664)|
+10,374,Share Domestic Electricity Production,2093,1358,68,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,375,320,374,1,0,0,0,0,128,0,-1--1--1,,1|(1920,1355)|
+1,376,325,374,0,0,0,0,0,128,0,-1--1--1,,1|(2016,1429)|
+1,377,374,327,0,0,0,0,0,128,0,-1--1--1,,1|(2174,1357)|
+1,378,344,363,1,0,0,0,0,128,0,-1--1--1,,1|(1845,478)|
+10,379,Relative Share Gas Demand Netherlands,2074,299,68,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,380,379,363,0,0,0,0,0,128,0,-1--1--1,,1|(2079,338)|
+10,381,Gas Import price with Taxes,2428,589,53,33,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,382,343,381,0,0,0,0,0,128,0,-1--1--1,,1|(2372,482)|
+1,383,381,348,0,0,0,0,0,128,0,-1--1--1,,1|(2324,677)|
+10,384,CO2 Tax,2512,724,41,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||255-128-0,0,0,0,0,0,0
+10,385,CO2 emmission per M3,2372,730,56,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,386,385,381,0,0,0,0,0,128,0,-1--1--1,,1|(2393,673)|
+1,387,384,381,0,0,0,0,0,128,0,-1--1--1,,1|(2480,673)|
+10,388,Natural Gas production cost,2856,671,77,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+10,389,Green Gas production cost,2824,550,77,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,390,388,353,0,0,0,0,0,128,0,-1--1--1,,1|(2766,657)|
+1,391,389,353,0,0,0,0,0,128,0,-1--1--1,,1|(2749,592)|
+10,392,Gas Trade,1910,465,34,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,393,344,392,0,0,0,0,0,128,0,-1--1--1,,1|(1867,577)|
+1,394,342,392,0,0,0,0,0,128,0,-1--1--1,,1|(2000,523)|
+10,395,Average Gas Price,2144,845,59,11,8,3,0,18,0,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+1,396,348,395,0,0,0,0,0,128,0,-1--1--1,,1|(2194,794)|
+1,397,351,395,0,0,0,0,0,128,0,-1--1--1,,1|(2035,838)|
+1,398,384,349,0,0,0,0,0,128,0,-1--1--1,,1|(2482,767)|
+1,399,385,349,0,0,0,0,0,128,0,-1--1--1,,1|(2393,773)|
+10,400,Foreign Electricity Demand,2056,1140,58,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,401,Relative Share Electricity Demand Netherlands,1870,1072,79,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,402,401,400,0,0,0,0,0,128,0,-1--1--1,,1|(1955,1103)|
+1,403,326,400,0,0,0,0,0,128,0,-1--1--1,,1|(1987,1203)|
+1,404,392,363,0,0,0,0,0,128,0,-1--1--1,,1|(1991,433)|
+1,405,363,364,0,0,0,0,0,128,0,-1--1--1,,1|(2146,366)|
+1,406,363,343,0,0,0,0,0,128,0,-1--1--1,,1|(2194,402)|
+1,407,320,400,1,0,0,0,0,128,0,-1--1--1,,1|(1841,1195)|
+10,408,Foreign Electricity Supply,2144,1036,58,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,409,Electricity Import price,2230,1128,55,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,410,400,408,0,0,0,0,0,128,0,-1--1--1,,1|(2095,1093)|
+1,411,408,409,0,0,0,0,0,128,0,-1--1--1,,1|(2181,1076)|
+1,412,400,409,0,0,0,0,0,128,0,-1--1--1,,1|(2137,1134)|
+10,413,Supply response delay Electricity,1996,994,53,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,414,413,408,0,0,0,0,0,128,0,-1--1--1,,1|(2060,1012)|
+1,415,409,354,0,0,0,0,0,128,0,-1--1--1,,1|(2296,1180)|
+1,416,335,354,0,0,0,0,0,128,0,-1--1--1,,1|(2372,1305)|
+1,417,334,354,0,0,0,0,0,128,0,-1--1--1,,1|(2516,1313)|
+10,418,Average Electricity import cost,2905,1220,60,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,419,418,409,1,0,0,0,0,128,0,-1--1--1,,1|(2648,987)|
+10,420,Initial National Electricity production,1932,1565,68,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,421,420,325,0,0,0,0,0,64,1,-1--1--1,,1|(1935,1543)|
+12,422,48,2306,591,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,423,425,422,4,0,0,22,0,0,0,-1--1--1,,1|(2256,593)|
+1,424,425,342,100,0,0,22,0,0,0,-1--1--1,,1|(2179,593)|
+11,425,48,2211,593,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,426,Decline Natural Gas production,2211,630,63,29,40,131,0,0,-1,0,0,0,0,0,0,0,0,0
+10,427,Decomissioning Natural gas production,2257,528,73,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,428,427,426,0,0,0,0,0,128,0,-1--1--1,,1|(2239,567)|
+10,429,Initial National Gas production,2092,493,61,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,430,429,342,0,0,0,0,0,128,1,-1--1--1,,1|(2095,530)|
+12,431,48,1896,589,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,432,434,342,4,0,0,22,0,0,0,-1--1--1,,1|(2006,588)|
+1,433,434,431,100,0,0,22,0,0,0,-1--1--1,,1|(1928,588)|
+11,434,48,1956,588,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,435,Increase Green Gas production,1956,615,64,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,436,Green Gas investments,1938,534,37,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,437,436,435,0,0,0,0,0,128,0,-1--1--1,,1|(1945,567)|
+1,438,342,426,0,0,0,0,0,128,0,-1--1--1,,1|(2143,603)|
+10,439,Time,2271,481,26,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,440,439,427,0,0,0,0,0,64,0,-1--1--1,,1|(2267,493)|
+12,441,48,2237,1493,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,442,444,325,4,0,0,22,0,0,0,-1--1--1,,1|(2056,1500)|
+1,443,444,441,100,0,0,22,0,0,0,-1--1--1,,1|(2179,1500)|
+11,444,48,2125,1500,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,445,Investment Renewable Electricity Capacity,2125,1527,73,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+12,446,48,1736,1494,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,447,449,446,4,0,0,22,0,0,0,-1--1--1,,1|(1771,1493)|
+1,448,449,325,100,0,0,22,0,0,0,-1--1--1,,1|(1851,1493)|
+11,449,48,1803,1493,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,450,Decomissioning Grey Capacity,1803,1520,51,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,451,311,445,0,0,0,0,0,64,0,-1--1--1,,1|(2258,1521)|
+1,452,325,445,0,0,0,0,0,64,0,-1--1--1,,1|(2015,1510)|
+1,453,325,450,0,0,0,0,0,64,0,-1--1--1,,1|(1880,1508)|
+10,454,Administration Period,1682,1552,51,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+10,455,Administration Period,2184,690,51,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,456,455,426,0,0,0,0,0,128,0,-1--1--1,,1|(2191,671)|
+12,457,0,-215,-394,95,39,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Population
+12,458,0,811,-394,130,35,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Housing Market
+12,459,0,2228,-374,218,43,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Average Heating Energy Consumption
+12,460,0,-175,309,129,41,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Business Cycle Scenarios
+12,461,0,-585,1673,86,40,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Energy Systems
+12,462,0,-471,937,133,41,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Technology Development
+12,463,0,448,1437,122,41,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Electricity consumption
+12,464,0,1261,1484,97,40,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+CO2 Emissions 
+12,465,0,2154,1250,115,50,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Electricity Market
+12,466,0,2675,295,86,52,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Gas Market
+10,467,Efficiency HCS,235,1243,53,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,468,Efficiency Residual Heat or Geothermal,288,1171,51,31,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,469,468,243,0,0,0,0,0,128,0,-1--1--1,,1|(362,1200)|
+1,470,467,243,0,0,0,0,0,128,0,-1--1--1,,1|(327,1240)|
+10,471,Percentage Heat Cold Storage,226,1366,50,41,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-0-0,0,0,0,0,0,0
+1,472,471,243,0,0,0,0,0,128,0,-1--1--1,,1|(339,1301)|
+10,473,VAT,2380,943,18,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,474,473,349,0,0,0,0,0,128,0,-1--1--1,,1|(2395,911)|
+10,475,Natural gas Tax,2265,911,51,20,8,131,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,476,475,349,0,0,0,0,0,128,0,-1--1--1,,1|(2331,884)|
+10,477,Time,2278,982,24,15,8,130,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,478,477,475,0,0,0,0,0,64,0,-1--1--1,,1|(2273,955)|
+10,479,VAT,2449,496,27,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,480,479,381,0,0,0,0,0,128,0,-1--1--1,,1|(2442,524)|
+10,481,Natural gas Tax,2520,548,59,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,482,481,381,0,0,0,0,0,128,0,-1--1--1,,1|(2494,559)|
+10,483,Electricity tax,2565,1286,43,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,484,483,324,0,0,0,0,0,128,0,-1--1--1,,1|(2552,1369)|
+10,485,VAT,2464,1345,27,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,486,485,324,0,0,0,0,0,128,0,-1--1--1,,1|(2489,1399)|
+10,487,VAT,2702,1647,27,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||255-128-0,0,0,0,0,0,0
+10,488,Electricity tax,2828,1637,52,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||255-128-0,0,0,0,0,0,0
+10,489,Renewable with Tax,2774,1568,56,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,490,319,489,0,0,0,0,0,128,0,-1--1--1,,1|(2836,1503)|
+1,491,487,489,0,0,0,0,0,128,0,-1--1--1,,1|(2732,1612)|
+1,492,488,489,0,0,0,0,0,128,0,-1--1--1,,1|(2805,1608)|
+1,493,489,337,0,0,0,0,0,128,0,-1--1--1,,1|(2682,1591)|
+1,494,336,483,0,0,0,0,0,128,0,-1--1--1,,1|(2575,1257)|
+1,495,485,354,0,0,0,0,0,128,0,-1--1--1,,1|(2427,1302)|
+1,496,483,354,0,0,0,0,0,128,0,-1--1--1,,1|(2481,1267)|
+12,497,0,1201,806,122,41,3,135,0,8,-1,0,0,0,-1--1--1,0-0-0,|30||0-0-0,0,0,0,0,0,0
+Gas consumption
+10,498,Time,-647,-18,26,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,499,498,67,0,0,0,0,0,64,0,-1--1--1,,1|(-645,-31)|
+10,500,Technology Maturity Insulation,-734,1208,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,501,Demolition per municipality,926,-279,47,19,8,3,0,18,0,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+1,502,145,501,0,0,0,0,0,128,0,-1--1--1,,1|(1010,-258)|
+10,503,Average Heating Energy use new construction,2714,221,78,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,504,38,503,0,0,0,0,0,128,0,-1--1--1,,1|(2646,154)|
+1,505,46,503,1,0,0,0,0,128,0,-1--1--1,,1|(2824,154)|
+12,506,48,-462,1205,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,507,509,500,4,0,0,22,0,0,0,-1--1--1,,1|(-646,1209)|
+1,508,509,506,100,0,0,22,0,0,0,-1--1--1,,1|(-529,1209)|
+11,509,48,-592,1209,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,510,Insulation investment development,-592,1236,66,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,511,Current insulation investment,-380,1251,56,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-0-0,0,0,0,0,0,0
+1,512,511,510,0,0,0,0,0,128,0,-1--1--1,,1|(-474,1244)|
+1,513,500,510,1,0,0,0,0,128,0,-1--1--1,,1|(-675,1227)|
+10,514,Insulation cost reduction,-896,1219,46,19,8,3,0,18,0,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+10,515,Maximum cost reduction,-970,1103,47,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+10,516,System cost reduction,-898,997,39,19,8,3,0,18,0,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+1,517,500,514,0,0,0,0,0,128,0,-1--1--1,,1|(-805,1212)|
+1,518,515,514,0,0,0,0,0,128,0,-1--1--1,,1|(-936,1155)|
+1,519,515,516,0,0,0,0,0,128,0,-1--1--1,,1|(-938,1055)|
+1,520,152,516,0,0,0,0,0,128,0,-1--1--1,,1|(-801,1020)|
+1,521,156,516,0,0,0,0,0,128,0,-1--1--1,,1|(-849,1061)|
+10,522,Initial Maturity Insulation,-780,1283,46,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|12||0-128-0,0,0,0,0,0,0
+1,523,522,514,0,0,0,0,0,64,0,-1--1--1,,1|(-831,1254)|
+1,524,522,500,0,0,0,0,0,128,1,-1--1--1,,1|(-761,1251)|
+10,525,System Distributions,-140,1584,40,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,526,Gas price no CO2 tax,1757,852,43,24,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,527,NMTU factor,1655,957,46,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,528,348,526,0,0,0,0,0,128,0,-1--1--1,,1|(2009,799)|
+10,529,CO2 Tax,1761,765,41,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,530,529,526,0,0,0,0,0,128,0,-1--1--1,,1|(1759,795)|
+10,531,CO2 emmission per M3,1575,866,56,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,532,531,526,0,0,0,0,0,128,0,-1--1--1,,1|(1665,859)|
+10,533,Average Heat Price,1849,970,45,19,8,3,0,18,0,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+1,534,526,533,0,0,0,0,0,128,0,-1--1--1,,1|(1800,907)|
+1,535,527,533,0,0,0,0,0,128,0,-1--1--1,,1|(1745,962)|
+1,536,351,533,0,0,0,0,0,128,0,-1--1--1,,1|(1905,892)|
+10,537,Net Caloric value,1689,1023,43,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,538,537,533,0,0,0,0,0,128,0,-1--1--1,,1|(1761,998)|
+10,539,Initial percentage per age group,-515,1626,57,19,8,2,1,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+10,540,Initial percentage per age group,-493,1511,57,19,8,2,1,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,541,525,167,0,0,0,0,0,128,0,-1--1--1,,1|(-59,1336)|
+1,542,167,235,0,0,0,0,0,128,0,-1--1--1,,1|(322,1006)|
+10,543,Share age groups,1098,352,55,11,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,544,1,543,0,0,0,0,0,128,0,-1--1--1,,1|(1081,110)|
+10,545,Average heating use per municipality,1126,569,64,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,546,543,545,0,0,0,0,0,128,0,-1--1--1,,1|(1110,449)|
+1,547,29,545,1,0,0,0,0,128,0,-1--1--1,,1|(1876,332)|
+1,548,545,235,0,0,0,0,0,128,0,-1--1--1,,1|(885,749)|
+10,549,Share Gas,-267,1615,34,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-0-0,0,0,0,0,0,0
+10,550,Share LT Grid,-192,1691,47,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-0-0,0,0,0,0,0,0
+10,551,Share MT Grid,-35,1478,50,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-0-0,0,0,0,0,0,0
+10,552,Share HT Grid,13,1537,48,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-0-0,0,0,0,0,0,0
+10,553,Share Air HP,11,1615,43,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-0-0,0,0,0,0,0,0
+10,554,Share Ground HP,-73,1671,57,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-0-0,0,0,0,0,0,0
+1,555,549,525,0,0,0,0,0,128,0,-1--1--1,,1|(-213,1601)|
+1,556,550,525,0,0,0,0,0,128,0,-1--1--1,,1|(-171,1647)|
+1,557,551,525,0,0,0,0,0,128,0,-1--1--1,,1|(-78,1522)|
+1,558,552,525,0,0,0,0,0,128,0,-1--1--1,,1|(-54,1557)|
+1,559,553,525,0,0,0,0,0,128,0,-1--1--1,,1|(-59,1601)|
+1,560,554,525,0,0,0,0,0,128,0,-1--1--1,,1|(-98,1637)|
+10,561,Desired Green Gas Share,-223,1499,47,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-128-0,0,0,0,0,0,0
+1,562,561,525,0,0,0,0,0,128,0,-1--1--1,,1|(-186,1536)|
+10,563,Efficiency Heat Pumps,900,1164,48,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,564,563,249,0,0,0,0,0,128,0,-1--1--1,,1|(854,1194)|
+10,565,Administration Period,-577,1312,51,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,566,565,510,0,0,0,0,0,128,0,-1--1--1,,1|(-582,1280)|
+10,567,g1,2018,9,10,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,568,g2,2017,-28,10,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,569,g3,2043,-48,10,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,570,g4,2072,-69,10,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,571,g5,2100,-94,10,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,572,g6,2160,-87,10,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,573,g7,2223,-15,10,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,574,g8,2236,22,10,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,575,g9,2198,50,10,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,576,g10,2157,72,14,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,577,g11,2105,69,14,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,578,Energy Imporvement timestep,2121,4,67,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||255-0-0,0,0,0,0,0,0
+1,579,567,578,0,0,0,0,0,128,0,-1--1--1,,1|(2034,8)|
+1,580,568,578,0,0,0,0,0,128,0,-1--1--1,,1|(2036,-23)|
+1,581,569,578,0,0,0,0,0,128,0,-1--1--1,,1|(2066,-33)|
+1,582,570,578,0,0,0,0,0,128,0,-1--1--1,,1|(2089,-43)|
+1,583,571,578,0,0,0,0,0,128,0,-1--1--1,,1|(2107,-56)|
+1,584,572,578,0,0,0,0,0,128,0,-1--1--1,,1|(2145,-52)|
+1,585,573,578,0,0,0,0,0,128,0,-1--1--1,,1|(2207,-13)|
+1,586,574,578,0,0,0,0,0,128,0,-1--1--1,,1|(2213,18)|
+1,587,575,578,0,0,0,0,0,128,0,-1--1--1,,1|(2176,37)|
+1,588,576,578,0,0,0,0,0,128,0,-1--1--1,,1|(2144,48)|
+1,589,577,578,0,0,0,0,0,128,0,-1--1--1,,1|(2109,47)|
+1,590,578,303,1,0,0,0,0,128,0,-1--1--1,,1|(2231,-53)|
+10,591,Years per group,2292,-29,37,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,592,591,303,0,0,0,0,0,128,0,-1--1--1,,1|(2319,-67)|
+1,593,279,450,0,0,0,0,0,128,0,-1--1--1,,1|(1874,1573)|
+12,594,48,1953,1325,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,595,597,594,4,0,0,22,0,0,0,-1--1--1,,1|(1951,1367)|
+1,596,597,325,100,0,0,22,0,0,0,-1--1--1,,1|(1951,1443)|
+11,597,48,1951,1408,8,6,33,3,0,0,2,0,0,0,0,0,0,0,0,0
+10,598,Decomissioning Green capacity,1893,1408,50,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,599,325,284,0,0,0,0,0,128,0,-1--1--1,,1|(2036,1574)|
+1,600,445,284,0,0,0,0,0,128,0,-1--1--1,,1|(2127,1581)|
+1,601,320,450,0,0,0,0,0,128,0,-1--1--1,,1|(1797,1436)|
+1,602,325,311,1,0,0,0,0,128,0,-1--1--1,,1|(2139,1454)|
+10,603,National Electricity Demand,2438,1749,65,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,604,603,311,0,0,0,0,0,128,0,-1--1--1,,1|(2409,1639)|
+1,605,320,598,0,0,0,0,0,64,0,-1--1--1,,1|(1837,1378)|
+1,606,325,598,0,0,0,0,0,64,0,-1--1--1,,1|(1919,1456)|
+10,607,Decomissioning Delay,1681,1401,50,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,608,607,598,0,0,0,0,0,128,0,-1--1--1,,1|(1780,1403)|
+10,609,Relative share population groups,-62,-223,57,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,610,52,609,1,0,0,0,0,128,0,-1--1--1,,1|(-214,-135)|
+10,611,Relative willingness to invest,-30,-315,61,19,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|12||0-0-255,0,0,0,0,0,0
+1,612,89,611,0,0,0,0,0,64,0,-1--1--1,,1|(-149,-321)|
+10,613,Willingness contribution per group,101,-257,69,26,8,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,614,609,613,0,0,0,0,0,128,0,-1--1--1,,1|(6,-237)|
+1,615,611,613,0,0,0,0,0,128,0,-1--1--1,,1|(20,-293)|
+10,616,Average willingness to invest municipality,110,-176,71,19,8,3,0,18,0,0,0,0,-1--1--1,0-0-0,|12|U|255-0-0,0,0,0,0,0,0
+1,617,613,616,0,0,0,0,0,128,0,-1--1--1,,1|(104,-220)|
+10,618,CO2 tax scheme,2686,1266,55,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,619,Linear CO2 tax,2732,1312,51,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,620,Exponential CO2 tax,2750,1407,37,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,621,618,334,0,0,0,0,0,128,0,-1--1--1,,1|(2661,1311)|
+10,622,Tax multiplier,2664,1432,43,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,623,622,334,0,0,0,0,0,128,0,-1--1--1,,1|(2650,1407)|
+1,624,620,334,0,0,0,0,0,128,0,-1--1--1,,1|(2694,1389)|
+1,625,619,334,0,0,0,0,0,128,0,-1--1--1,,1|(2687,1337)|
+10,626,Time,2773,1357,26,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,627,626,619,0,0,0,0,0,64,0,-1--1--1,,1|(2757,1339)|
+1,628,626,620,0,0,0,0,0,128,0,-1--1--1,,1|(2766,1371)|
+10,629,Linear to green gas,-254,1354,60,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,630,Exp to green gas,-377,1525,53,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,631,Green gas transition scheme,-370,1399,63,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,632,Production scheme green gas,-435,1459,61,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,633,629,561,0,0,0,0,0,128,0,-1--1--1,,1|(-240,1415)|
+1,634,630,561,0,0,0,0,0,128,0,-1--1--1,,1|(-303,1512)|
+1,635,632,561,0,0,0,0,0,128,0,-1--1--1,,1|(-328,1478)|
+1,636,631,561,0,0,0,0,0,128,0,-1--1--1,,1|(-302,1445)|
+10,637,Time,-377,1555,26,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,638,637,630,0,0,0,0,0,64,0,-1--1--1,,1|(-377,1547)|
+10,639,Time,-254,1384,26,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,640,639,629,0,0,0,0,0,64,0,-1--1--1,,1|(-254,1376)|
+10,641,National Gas production,-544,1526,47,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,642,641,632,0,0,0,0,0,128,0,-1--1--1,,1|(-495,1496)|
+1,643,525,471,0,0,0,0,0,128,0,-1--1--1,,1|(27,1483)|
+10,644,Gas production cost ramp,2684,526,49,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,645,644,353,0,0,0,0,0,128,0,-1--1--1,,1|(2674,576)|
+10,646,FINAL TIME,2661,804,55,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,647,646,353,0,0,0,0,0,64,0,-1--1--1,,1|(2661,733)|
+10,648,INITIAL TIME,2789,764,60,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,649,648,353,0,0,0,0,0,64,0,-1--1--1,,1|(2735,711)|
+1,650,353,349,0,0,0,0,0,128,0,-1--1--1,,1|(2560,730)|
+1,651,319,418,0,0,0,0,0,64,0,-1--1--1,,1|(2908,1320)|
+10,652,FINAL TIME,2966,1546,55,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,653,652,333,0,0,0,0,0,64,0,-1--1--1,,1|(2975,1534)|
+10,654,Grey electricity cost ramp,3052,1297,48,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,655,654,333,0,0,0,0,0,64,0,-1--1--1,,1|(3037,1374)|
+10,656,INITIAL TIME,3088,1571,60,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,657,656,333,0,0,0,0,0,64,0,-1--1--1,,1|(3067,1546)|
+1,658,333,418,0,0,0,0,0,128,0,-1--1--1,,1|(2959,1349)|
+1,659,626,319,0,0,0,0,0,128,0,-1--1--1,,1|(2823,1381)|
+10,660,Renewable Electricity cost multiplier,2708,1526,69,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,661,660,324,0,0,0,0,0,128,0,-1--1--1,,1|(2621,1509)|
+1,662,660,418,1,0,0,0,0,128,0,-1--1--1,,1|(2851,1405)|
+10,663,Percentage Renewable import,2658,1109,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+12,664,48,2497,1106,10,8,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,665,666,664,100,0,0,22,0,0,0,-1--1--1,,1|(2523,1103)|
+11,666,48,2546,1103,6,8,34,3,0,0,3,0,0,0,0,0,0,0,0,0
+10,667,Increase renewable import,2546,1076,56,19,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,668,Foreign renewable multiplier,2537,1004,59,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,669,668,667,0,0,0,0,0,128,0,-1--1--1,,1|(2540,1033)|
+10,670,National Electricity production,2430,1040,65,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+10,671,Investment Renewable Electricity Capacity,2378,1095,77,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,672,671,667,0,0,0,0,0,128,0,-1--1--1,,1|(2465,1085)|
+1,673,670,667,0,0,0,0,0,128,0,-1--1--1,,1|(2483,1056)|
+1,674,663,667,0,0,0,0,0,128,0,-1--1--1,,1|(2616,1097)|
+10,675,initial percentage foreign renewable Electricity,2686,1197,66,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,676,663,354,0,0,0,0,0,128,0,-1--1--1,,1|(2522,1172)|
+1,677,663,418,0,0,0,0,0,128,0,-1--1--1,,1|(2773,1160)|
+1,678,675,663,0,0,0,0,0,128,1,-1--1--1,,1|(2674,1160)|
+1,679,666,663,4,0,0,22,0,0,0,-1--1--1,,1|(2585,1103)|
+10,680,Relative national electricity price,1786,1593,52,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,681,680,450,0,0,0,0,0,64,0,-1--1--1,,1|(1792,1563)|
+10,682,National Electricity price with Taxes,1767,1666,65,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+10,683,Electricity import price with Taxes,1660,1661,59,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|12||128-128-128,0,0,0,0,0,0
+1,684,683,680,0,0,0,0,0,128,0,-1--1--1,,1|(1716,1630)|
+1,685,682,680,0,0,0,0,0,128,0,-1--1--1,,1|(1774,1636)|
+1,686,680,337,0,0,0,0,0,64,0,-1--1--1,,1|(2173,1605)|
+///---\\\
+:L<%^E!@
+1:test
+9:test
+22:house,House
+18:Energy_transition Coflows.vsc
+20:Energy_transition Coflows.lst
+15:0,0,0,0,0,0
+19:60,0
+27:0,
+34:0,
+42:1
+72:0
+73:0
+4:Time
+5:a
+35:Date
+36:YYYY-MM-DD
+37:2000
+38:1
+39:1
+40:0
+41:0
+76:0
+77:0
+78:0
+79:0
+80:0
+81:0
+24:2020
+25:2060
+26:2060
+57:1
+54:0
+55:0
+82:0
+86:0
+59:0
+56:0
+58:0
+71:0
+44:1250
+46:0
+45:5
+49:1
+50:0
+51:
+52:
+53:
+43:C:\Users\Dirk\Offline Multi-model\SD\vensim_vars\SD_output_willingness.csv
+47:Current
+48:Energy_transition_willingness.lst
+75:
+43:C:\Users\Dirk\Offline Multi-model\SD\vensim_vars\SD_output_willingness.csv
+6:"'s-Gravenhage"
+6:"100to150m2"
+6:"75to100m2"
+6:Age0to4
+6:Age0to9
+6:Age100plus
+6:Age10to14
+6:Age10to19
+6:Age15to19
+6:Age20to24
+6:Age20to29
+6:Age25to29
+6:Age30to34
+6:Age30to39
+6:Age35to39
+6:Age40to44
+6:Age40to49
+6:Age45to49
+6:Age50to54
+6:Age50to59
+6:Age55to59
+6:Age5to9
+6:Age60to64
+6:Age60to69
+6:Age65to69
+6:Age70to74
+6:Age70to79
+6:Age75to79
+6:Age80plus
+6:Age80to89
+6:Age90to99
+6:Air Heat Pump
+6:Appartment
+6:Green Gas
+6:Ground Heat Pump
+6:HT Heating Grid
+6:Hybrid Heat Pump
+6:Label A
+6:Label B
+6:Label C
+6:Label D
+6:Label E
+6:Label F
+6:LT Heating Grid
+6:MT Heating Grid
+6:Natural Gas
+6:Semi Detatched
