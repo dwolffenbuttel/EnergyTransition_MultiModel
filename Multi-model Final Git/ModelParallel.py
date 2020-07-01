@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[9]:
 
 
 from MultiModelFinal7 import CombinedModel
+from alternative_callbacks import Extra_dim_Callback
 
 import os
 import pandas as pd
@@ -19,12 +20,13 @@ from datetime import datetime
 from ema_workbench import (RealParameter, CategoricalParameter, ArrayOutcome, TimeSeriesOutcome, ema_logging,
                            perform_experiments, MultiprocessingEvaluator)
 from ema_workbench import save_results
+import pickle
 
 filepath_model = './model'
 filepath_results = os.path.abspath(os.path.join(filepath_model, os.pardir)) + "\\results"
 
 
-# In[ ]:
+# In[2]:
 
 
 multi_model = CombinedModel('UrbanEnergyTransition', wd=filepath_model)
@@ -33,6 +35,12 @@ multi_model.netlogo_model_file = 'ABM_ema.nlogo'
 
 
 # In[ ]:
+
+
+
+
+
+# In[3]:
 
 
 start = datetime.now()
@@ -108,6 +116,8 @@ multi_model.outcomes = [TimeSeriesOutcome('SD_Average Gas Price'),
                        ]
 
 multi_model.replications = 4
+multi_model.nrScenarios = 50
+multi_model.nrPolicies = 30
 
 #replications: 4
 #scenarios: 50
@@ -116,41 +126,41 @@ multi_model.replications = 4
 #results = perform_experiments(multi_model, 1, 1)
 
 with MultiprocessingEvaluator(multi_model) as evaluator:
-    results = perform_experiments(multi_model, scenarios = 50, policies = 30,
-                                 evaluator=evaluator)
+    results = perform_experiments(multi_model, multi_model.nrScenarios, multi_model.nrPolicies,
+                                 evaluator=evaluator, callback = Extra_dim_Callback)
 
 end = datetime.now()
 
 print('Total experiments took ' + str(end-start))
 
 
-# In[ ]:
+# In[4]:
 
 
 no_categorical_results = ['SD_Average Gas Price', 'SD_Average Electricity Price', 'SD_Average Heat Price', 'SD_National Energy System Distribution[Natural Gas]', 'SD_National Energy System Distribution[Green Gas]', 'SD_National Energy System Distribution[LT Heating Grid]', 'SD_National Energy System Distribution[MT Heating Grid]', 'SD_National Energy System Distribution[HT Heating Grid]', 'SD_National Energy System Distribution[Air Heat Pump]', 'SD_National Energy System Distribution[Ground Heat Pump]', 'SD_Cumulative CO2 emmissions', 'SD_Percentage Renewable Electricity', 'SD_CO2 Tax', 'SD_Gas Trade[Natural Gas]', 'SD_Gas Trade[Green Gas]', 'SD_Electricity Trade','System Distributions', 'Total Electricity use', 'Municipality Data']
 
 
-# In[ ]:
+# In[5]:
 
 
 results_mean = {k: results[1][k].mean(axis = 1) for k in no_categorical_results}
 # Splitting is necessary for allowing to save
 
 
-# In[ ]:
+# In[6]:
 
 
-save_results((results[0],results_mean), filepath_results + '/results_50scen_30_pol_290620.gz.tar')
+save_results((results[0],results_mean), filepath_results + '/results_50scen_30_pol.gz.tar')
 
 
-# In[ ]:
+# In[10]:
 
 
 #make batches of 100 scenarios/policies to save neighbourhood data
 n = math.ceil(len(results[1]['Neighbourhood Data'])/100)
 
 for i in range (n):
-    a_file = open(filepath_results + "/Neighbourhood_results_290620_#" + str(i)+  ".pkl", "wb")
+    a_file = open(filepath_results + "/Neighbourhood_results_#" + str(i)+  ".pkl", "wb")
     pickle.dump((results[0],results[1]['Neighbourhood Data'][i*100:i*100+100]), a_file)
     a_file.close()
     
